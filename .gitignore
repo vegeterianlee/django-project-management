@@ -1,0 +1,26 @@
+# 캐시 파일
+**/__pycache__/
+
+# 작업환경
+.vscode/
+**/.env*
+.env*
+.envs/
+.venv/
+.cursor/
+
+# PyCharm과 같은 프로젝트 설정 파일 제외
+.idea/**
+
+# 원래 자바파일
+src/**
+
+# 로그 파일
+apps/infrastructure/common/logging/log/**
+
+# 마이그레이션 파일
+**/migrations/
+!**/migrations/__init__.py
+
+# celerybeat-scheduler
+celerybeat-schedule
