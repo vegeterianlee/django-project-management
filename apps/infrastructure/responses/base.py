@@ -1,3 +1,5 @@
+from typing import Dict, Any
+
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse
 
