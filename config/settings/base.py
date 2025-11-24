@@ -21,7 +21,7 @@ ENVIRONMENT = os.environ.get("DJANGO_ENV", "local")
 # -----------------------------
 env = environ.Env()   # <--- Core django-environ object
 
-env_file = BASE_DIR / ".envs" / f".{ENVIRONMENT}"
+env_file = BASE_DIR / ".env"
 
 if env_file.exists():
     env.read_env(env_file)     # <--- Read .env file into os.environ
@@ -44,13 +44,12 @@ DATABASES = {
     "default": env.db("DATABASE_URL")
 }
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
-
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # -----------------------------
 # Apps
 # -----------------------------
 INSTALLED_APPS = [
-    "polls.apps.PollsConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -67,11 +66,84 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
-    "daesan_pms.users",
+    # Infrastructure 레이어 (공통 모델)
+    'apps.infrastructure.time_stamp',
+
+    # Domain 레이어 앱들
+    'apps.domain.company',
+    'apps.domain.users',
+
 ]
 
 INSTALLED_APPS += THIRD_PARTY_APPS + LOCAL_APPS
+ROOT_URLCONF = "pms_v3.urls"
 
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / 'templates']
+        ,
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+STATIC_URL = "static/"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "PMS API",
+    "DESCRIPTION": "Project Management Service API",
+    "VERSION": "0.2.0",
+    "DISABLE_ERRORS_AND_WARNINGS": False,
+}
+# -----------------------------
+# Redis Cache
+# -----------------------------
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.getenv("CACHE_REDIS_URL")
+    }
+}
+
+JWT_REDIS_URL = os.getenv("JWT_REDIS_URL")
 
 # -----------------------------
 # Celery
@@ -97,6 +169,3 @@ USE_I18N = True
 USE_TZ = False
 
 
-STATIC_URL = "static/"
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
