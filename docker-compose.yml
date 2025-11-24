@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 데이터베이스 컨테이너
+  pms_v3-postgre:
+    image: postgres:15-alpine
+    container_name: pms_v3-postgre
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - django-pms-network
+
+  # Redis 컨테이너
+  pms_v3-redis:
+    image: redis:7-alpine
+    container_name: pms_v3-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - django-pms-network
+
+  # Django 웹 애플리케이션 컨테이너
+  pms_v3-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DJANGO_ENV: ${DJANGO_ENV:-local}
+    container_name: pms_v3-web
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    ports:
+      - "${WEB_PORT}:${WEB_PORT}"
+    depends_on:
+      pms_v3-postgre:
+        condition: service_healthy
+      pms_v3-redis:
+        condition: service_healthy
+    networks:
+      - django-pms-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+
+networks:
+  django-pms-network:
