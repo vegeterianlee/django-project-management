@@ -80,12 +80,17 @@ class GenericRepository(IGenericRepository):
             Serializer 인스턴스
         """
 
+        # 1단계: DTO를 딕셔너리로 변환
         if many:
             data = [asdict(value) for value in dto]
         else:
             data = asdict(dto)
-
+        # 2단계: 딕셔너리를 Serializer에 전달
+        # data={'id': 1, 'name': '테스트', ...}
+        # → Serializer가 이 딕셔너리를 검증하고 모델로 변환
         serializer = self.serializer_class(data=data, many=many)
+
+        # 3단계: 검증
         serializer.is_valid(raise_exception=self.raise_serializer_exception)
         return serializer
 

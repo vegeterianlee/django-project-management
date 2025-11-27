@@ -115,7 +115,7 @@ class CompanyViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
 
         GET /api/companies/by-type/CLIENT/
         """
-        print(CompanyViewSet.mro())
+        #print(CompanyViewSet.mro())
         repository = CompanyRepository()
         companies = repository.get_by_type(company_type)
         serializer = self.get_serializer(companies, many=True)
