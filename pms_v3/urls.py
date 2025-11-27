@@ -30,4 +30,7 @@ urlpatterns = [
 
     # Users 도메인 API
     path("api/", include("apps.presentation.api.users.urls")),
+
+    # Projects 도메인 API
+    path("api/", include("apps.presentation.api.projects.urls")),
 ]

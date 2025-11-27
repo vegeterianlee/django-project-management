@@ -72,6 +72,7 @@ LOCAL_APPS = [
     # Domain 레이어 앱들
     'apps.domain.company',
     'apps.domain.users',
+    'apps.domain.projects',
 
 ]
 
