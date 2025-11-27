@@ -49,7 +49,7 @@ class UpdatedResponse(BaseJsonResponse):
         super().__init__(
             data=data,
             message=message,
-            code=status.HTTP_201_CREATED,
+            code=status.HTTP_200_OK,
             key=key
         )
 
