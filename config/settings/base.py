@@ -73,6 +73,7 @@ LOCAL_APPS = [
     'apps.domain.company',
     'apps.domain.users',
     'apps.domain.projects',
+    'apps.domain.tasks',
 
 ]
 
