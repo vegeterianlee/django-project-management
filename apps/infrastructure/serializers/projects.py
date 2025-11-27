@@ -3,12 +3,13 @@ Projects Serializers
 
 Projects 도메인의 모델을 직렬화/역직렬화하는 Serializer입니다.
 """
+from typing import List, Dict, Any
+
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 
 from rest_framework import serializers
 from apps.domain.projects.models import Project, ProjectCompanyLink, ProjectAssignee, ProjectMethod
-from apps.domain.company.models import Company
-from apps.domain.users.models import User
 
 
 class ProjectMethodModelSerializer(serializers.ModelSerializer):
@@ -67,6 +68,149 @@ class ProjectMethodModelSerializer(serializers.ModelSerializer):
                 })
 
         return data
+
+
+class ProjectModelSerializer(serializers.ModelSerializer):
+    """
+    Project 모델의 Serializer
+
+    Project 모델의 모든 필드를 직렬화/역직렬화합니다.
+    역할별 company_links 분류, methods 목록, assignees 목록을 포함합니다.
+    """
+    # 역할별 company_links 분류
+    company_links_by_role = serializers.SerializerMethodField()
+
+    # methods 목록 (다중 공법 지원)
+    methods = serializers.SerializerMethodField()
+
+    # assignees 목록과 개수
+    assignees = serializers.SerializerMethodField()
+    assignees_count = serializers.SerializerMethodField()
+
+    # 쓰기용: ListField (프로젝트 생성 시 methods를 받기 위해)
+    methods_input = serializers.ListField(
+        child=serializers.ChoiceField(choices=ProjectMethod.METHOD_CHOICES),
+        write_only=True,
+        required=False,
+        help_text="공법 목록 (프로젝트 생성 시 함께 등록)"
+    )
+
+    class Meta:
+        model = Project
+        fields = [
+            'id',
+            'project_code',
+            'name',
+            'description',
+            'status',
+            'methods',  # 공법 목록 (상세 정보)
+            'methods_input',  # 공법 입력 (쓰기 전용)
+            'start_date',
+            'end_date',
+            'company_links_by_role',  # 역할별 분류된 company_links
+            'assignees',  # 담당자 목록
+            'assignees_count',  # 담당자 수
+            'created_at',
+            'updated_at',
+            'deleted_at',
+        ]
+        read_only_fields = [
+            'id',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+            'company_links_by_role',
+            'methods',
+            'assignees',
+            'assignees_count',
+        ]
+
+    @extend_schema_field(
+        serializers.ListField(
+            child=serializers.DictField()
+        )
+    )
+    def get_methods(self, obj) -> List[Dict[str, Any]]:
+        """
+        프로젝트에 연결된 공법 목록을 반환합니다 (상세 정보).
+
+        Args:
+            obj: Project 인스턴스
+
+        Returns:
+            list: 공법 정보 리스트
+        """
+        # 소프트 삭제되지 않은 methods 조회
+        methods = obj.methods.filter(deleted_at__isnull=True)
+
+        result = []
+        for method in methods:
+            method_data = {
+                'id': method.id,
+                'method': method.method,
+            }
+            result.append(method_data)
+
+        return result
+
+    @extend_schema_field(
+        serializers.DictField(
+            child=serializers.ListField(
+                child=serializers.DictField()
+            )
+        )
+    )
+    def get_company_links_by_role(self, obj) -> List[Dict[str, Any]]:
+        """
+        역할별로 분류된 company_links를 반환합니다.
+
+        Args:
+            obj: Project 인스턴스
+
+        Returns:
+            dict: {
+                'CLIENT': [company_link1, company_link2, ...],
+                'DESIGN': [company_link3, ...],
+                'CONSTRUCTION': [company_link4, ...],
+                'count': {
+                    'CLIENT': 2,
+                    'DESIGN': 1,
+                    'CONSTRUCTION': 1,
+                    'total': 4
+                }
+            }
+        """
+        # 소프트 삭제되지 않은 company_links 조회
+        company_links = obj.company_links.filter(deleted_at__isnull=True)
+
+        # 역할별로 분류
+        result = {
+            'CLIENT': [],
+            'DESIGN': [],
+            'CONSTRUCTION': [],
+            'count': {
+                'CLIENT': 0,
+                'DESIGN': 0,
+                'CONSTRUCTION': 0,
+                'total': 0
+            }
+        }
+
+        # 간단한 Company 정보를 포함한 Serializer 사용
+        for link in company_links:
+            link_data = {
+                'id': link.id,
+                'company_id': link.company.id,
+                'company_name': link.company.name,
+                'role': link.role,
+                'created_at': link.created_at,
+            }
+
+            result[link.role].append(link_data)
+            result['count'][link.role] += 1
+            result['count']['total'] += 1
+
+        return result
 
     def create(self, validated_data):
         """
@@ -155,137 +299,11 @@ class ProjectMethodModelSerializer(serializers.ModelSerializer):
 
         return instance
 
-
-class ProjectModelSerializer(serializers.ModelSerializer):
-    """
-    Project 모델의 Serializer
-
-    Project 모델의 모든 필드를 직렬화/역직렬화합니다.
-    역할별 company_links 분류, methods 목록, assignees 목록을 포함합니다.
-    """
-    # 역할별 company_links 분류
-    company_links_by_role = serializers.SerializerMethodField()
-
-    # methods 목록 (다중 공법 지원)
-    methods = serializers.SerializerMethodField()
-
-    # assignees 목록과 개수
-    assignees = serializers.SerializerMethodField()
-    assignees_count = serializers.SerializerMethodField()
-
-    # 쓰기용: ListField (프로젝트 생성 시 methods를 받기 위해)
-    methods_input = serializers.ListField(
-        child=serializers.ChoiceField(choices=ProjectMethod.METHOD_CHOICES),
-        write_only=True,
-        required=False,
-        help_text="공법 목록 (프로젝트 생성 시 함께 등록)"
+    @extend_schema_field(
+        serializers.ListField(
+            child=serializers.DictField()
+        )
     )
-
-    class Meta:
-        model = Project
-        fields = [
-            'id',
-            'project_code',
-            'name',
-            'description',
-            'status',
-            'methods',  # 공법 목록 (상세 정보)
-            'methods_input',  # 공법 입력 (쓰기 전용)
-            'start_date',
-            'end_date',
-            'company_links_by_role',  # 역할별 분류된 company_links
-            'assignees',  # 담당자 목록
-            'assignees_count',  # 담당자 수
-            'created_at',
-            'updated_at',
-            'deleted_at',
-        ]
-        read_only_fields = [
-            'id',
-            'created_at',
-            'updated_at',
-            'deleted_at',
-            'company_links_by_role',
-            'methods',
-            'assignees',
-            'assignees_count',
-        ]
-
-    def get_methods(self, obj):
-        """
-        프로젝트에 연결된 공법 목록을 반환합니다 (상세 정보).
-
-        Args:
-            obj: Project 인스턴스
-
-        Returns:
-            list: 공법 정보 리스트
-        """
-        # 소프트 삭제되지 않은 methods 조회
-        methods = obj.methods.filter(deleted_at__isnull=True)
-
-        result = []
-        for method in methods:
-            method_data = {
-                'id': method.id,
-                'method': method.method,
-            }
-            result.append(method_data)
-
-        return result
-
-    def get_company_links_by_role(self, obj):
-        """
-        역할별로 분류된 company_links를 반환합니다.
-
-        Args:
-            obj: Project 인스턴스
-
-        Returns:
-            dict: {
-                'CLIENT': [company_link1, company_link2, ...],
-                'DESIGN': [company_link3, ...],
-                'CONSTRUCTION': [company_link4, ...],
-                'count': {
-                    'CLIENT': 2,
-                    'DESIGN': 1,
-                    'CONSTRUCTION': 1,
-                    'total': 4
-                }
-            }
-        """
-        # 소프트 삭제되지 않은 company_links 조회
-        company_links = obj.company_links.filter(deleted_at__isnull=True)
-
-        # 역할별로 분류
-        result = {
-            'CLIENT': [],
-            'DESIGN': [],
-            'CONSTRUCTION': [],
-            'count': {
-                'CLIENT': 0,
-                'DESIGN': 0,
-                'CONSTRUCTION': 0,
-                'total': 0
-            }
-        }
-
-        # 간단한 Company 정보를 포함한 Serializer 사용
-        for link in company_links:
-            link_data = {
-                'id': link.id,
-                'company_id': link.company.id,
-                'company_name': link.company.name,
-                'role': link.role,
-                'created_at': link.created_at,
-            }
-
-            result[link.role].append(link_data)
-            result['count'][link.role] += 1
-            result['count']['total'] += 1
-
-        return result
-
     def get_assignees(self, obj):
         """
         프로젝트에 할당된 담당자 목록을 반환합니다.
@@ -313,7 +331,8 @@ class ProjectModelSerializer(serializers.ModelSerializer):
 
         return result
 
-    def get_assignees_count(self, obj):
+    @extend_schema_field(serializers.IntegerField())
+    def get_assignees_count(self, obj) -> int:
         """
         프로젝트에 할당된 담당자 수를 반환합니다.
 
