@@ -29,5 +29,5 @@ urlpatterns = [
     path("api/", include("apps.presentation.api.company.urls")),
 
     # Users 도메인 API
-    path("api", include("apps.presentation.api.users.urls")),
+    path("api/", include("apps.presentation.api.users.urls")),
 ]

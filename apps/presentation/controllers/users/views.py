@@ -112,7 +112,7 @@ class UserViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
         ],
         responses=ApiResponse[dict]
     )
-    @action(detail=False, methods=['get'], url_path='by-email/(?P<email>[^/.]+)')
+    @action(detail=False, methods=['get'], url_path='by-email/(?P<email>[^/]+)')
     def by_email(self, request, email=None):
         """
         이메일로 사용자 조회
