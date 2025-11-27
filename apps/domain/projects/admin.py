@@ -34,7 +34,7 @@ class ProjectAdmin(admin.ModelAdmin):
         'id', 'project_code', 'name', 'status', 'start_date', 'end_date',
         'is_deleted', 'created_at',
     ]
-    list_filter = ['status', 'method', 'start_date', 'end_date', 'created_at', 'deleted_at']
+    list_filter = ['status', 'start_date', 'end_date', 'created_at', 'deleted_at']
     search_fields = ['project_code', 'name', 'description']
     readonly_fields = ['created_at', 'updated_at', 'deleted_at', 'is_deleted_display']
     fieldsets = (
