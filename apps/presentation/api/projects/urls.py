@@ -10,7 +10,7 @@ from rest_framework.routers import DefaultRouter
 from apps.presentation.controllers.projects.views import (
     ProjectViewSet,
     ProjectCompanyLinkViewSet,
-    ProjectAssigneeViewSet,
+    ProjectAssigneeViewSet, ProjectMethodViewSet,
 )
 
 # DRF Router 생성
@@ -25,6 +25,7 @@ router = DefaultRouter()
 router.register(r'projects', ProjectViewSet, basename='project')
 router.register(r'project-company-links', ProjectCompanyLinkViewSet, basename='project-company-link')
 router.register(r'project-assignees', ProjectAssigneeViewSet, basename='project-assignee')
+router.register(r'project-methods', ProjectMethodViewSet, basename='project-method')
 
 # URL 패턴 정의
 # router.urls에는 자동으로 생성된 URL 패턴들이 포함됩니다
