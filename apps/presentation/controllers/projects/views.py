@@ -14,15 +14,15 @@ from datetime import date
 from apps.infrastructure.repositories.projects.repository import (
     ProjectRepository,
     ProjectCompanyLinkRepository,
-    ProjectAssigneeRepository,
+    ProjectAssigneeRepository, ProjectMethodRepository,
 )
 from apps.infrastructure.responses.swagger_api_response import ApiResponse
 from apps.infrastructure.views.mixins import StandardViewSetMixin
-from apps.domain.projects.models import Project, ProjectCompanyLink, ProjectAssignee
+from apps.domain.projects.models import Project, ProjectCompanyLink, ProjectAssignee, ProjectMethod
 from apps.infrastructure.serializers.projects import (
     ProjectModelSerializer,
     ProjectCompanyLinkModelSerializer,
-    ProjectAssigneeModelSerializer,
+    ProjectAssigneeModelSerializer, ProjectMethodModelSerializer,
 )
 from apps.infrastructure.responses.success import SuccessResponse
 from apps.infrastructure.responses.error import NotFoundResponse
@@ -193,6 +193,138 @@ class ProjectViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(projects, many=True)
         return SuccessResponse(data=serializer.data, message="조회되었습니다.")
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("method", str, OpenApiParameter.PATH),
+        ],
+        responses=ApiResponse[dict]
+    )
+    @action(detail=False, methods=['get'], url_path='by-method/(?P<method>[^/.]+)')
+    def by_method(self, request, method=None):
+        """
+        공법별 프로젝트 조회
+
+        GET /api/projects/by-method/GRB/
+        """
+        repository = ProjectRepository()
+        projects = repository.get_by_method(method)
+        serializer = self.get_serializer(projects, many=True)
+        return SuccessResponse(data=serializer.data, message="조회되었습니다.")
+
+
+@extend_schema(tags=['ProjectMethod'])
+class ProjectMethodViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
+    """
+    ProjectMethod ViewSet
+
+    ProjectMethod 모델에 대한 CRUD 작업을 제공합니다.
+    """
+    queryset = ProjectMethod.objects.all()
+    serializer_class = ProjectMethodModelSerializer
+
+    def get_queryset(self):
+        """QuerySet을 반환합니다."""
+        return ProjectMethod.objects.filter(deleted_at__isnull=True)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("page", int, OpenApiParameter.QUERY),
+            OpenApiParameter("page_size", int, OpenApiParameter.QUERY),
+        ],
+        responses=ApiResponse[dict]
+    )
+    def list(self, request, *args, **kwargs):
+        """프로젝트-공법 연결 목록 조회 (페이지네이션 적용)"""
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("id", int, OpenApiParameter.PATH),
+        ],
+        responses=ApiResponse[dict]
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """프로젝트-공법 연결 상세 조회"""
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        request=ProjectMethodModelSerializer,
+        responses=ApiResponse[dict]
+    )
+    def create(self, request, *args, **kwargs):
+        """프로젝트-공법 연결 생성"""
+        return super().create(request, *args, **kwargs)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("id", int, OpenApiParameter.PATH),
+        ],
+        request=ProjectMethodModelSerializer,
+        responses=ApiResponse[dict]
+    )
+    def update(self, request, *args, **kwargs):
+        """프로젝트-공법 연결 수정"""
+        return super().update(request, *args, **kwargs)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("id", int, OpenApiParameter.PATH),
+        ],
+        request=ProjectMethodModelSerializer,
+        responses=ApiResponse[dict]
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """프로젝트-공법 연결 부분 수정"""
+        return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("id", int, OpenApiParameter.PATH),
+        ],
+        responses=ApiResponse[dict]
+    )
+    def destroy(self, request, *args, **kwargs):
+        """프로젝트-공법 연결 삭제"""
+        return super().destroy(request, *args, **kwargs)
+
+    # ========== 커스텀 액션 ==========
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("project_id", int, OpenApiParameter.PATH),
+        ],
+        responses=ApiResponse[dict]
+    )
+    @action(detail=False, methods=['get'], url_path='by-project/(?P<project_id>[^/.]+)')
+    def by_project(self, request, project_id=None):
+        """
+        프로젝트별 공법 조회
+
+        GET /api/project-methods/by-project/1/
+        """
+        repository = ProjectMethodRepository()
+        methods = repository.get_by_project(int(project_id))
+        serializer = self.get_serializer(methods, many=True)
+        return SuccessResponse(data=serializer.data, message="조회되었습니다.")
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("method", str, OpenApiParameter.PATH),
+        ],
+        responses=ApiResponse[dict]
+    )
+    @action(detail=False, methods=['get'], url_path='by-method/(?P<method>[^/.]+)')
+    def by_method(self, request, method=None):
+        """
+        공법별 프로젝트 조회
+
+        GET /api/project-methods/by-method/GRB/
+        """
+        repository = ProjectMethodRepository()
+        methods = repository.get_by_method(method)
+        serializer = self.get_serializer(methods, many=True)
+        return SuccessResponse(data=serializer.data, message="조회되었습니다.")
+
+
 
 @extend_schema(tags=['ProjectCompanyLink'])
 class ProjectCompanyLinkViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
@@ -325,6 +457,8 @@ class ProjectCompanyLinkViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
         return SuccessResponse(data=serializer.data, message="조회되었습니다.")
 
 
+
+
 @extend_schema(tags=['ProjectAssignee'])
 class ProjectAssigneeViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
     """
@@ -438,21 +572,3 @@ class ProjectAssigneeViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
             serializer = self.get_serializer(assignee)
             return SuccessResponse(data=serializer.data, message="조회되었습니다.")
         return NotFoundResponse(message="주요 담당자를 찾을 수 없습니다.")
-
-    @extend_schema(
-        parameters=[
-            OpenApiParameter("user_id", int, OpenApiParameter.PATH),
-        ],
-        responses=ApiResponse[dict]
-    )
-    @action(detail=False, methods=['get'], url_path='by-user/(?P<user_id>[^/.]+)')
-    def by_user(self, request, user_id=None):
-        """
-        사용자별 프로젝트 할당 조회
-        
-        GET /api/project-assignees/by-user/1/
-        """
-        repository = ProjectAssigneeRepository()
-        assignees = repository.get_by_user(int(user_id))
-        serializer = self.get_serializer(assignees, many=True)
-        return SuccessResponse(data=serializer.data, message="조회되었습니다.")

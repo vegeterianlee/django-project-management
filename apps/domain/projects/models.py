@@ -15,6 +15,22 @@ class Project(TimeStampedSoftDelete):
 
     소프트 삭제 기능을 제공하며, 프로젝트 코드는 고유해야 합니다.
     """
+    # 프로젝트 상태 선택지
+    STATUS_CHOICES = [
+        ("PLANNING", "기획"),
+        ("IN_PROGRESS", "진행 중"),
+        ("ON_HOLD", "보류"),
+        ("COMPLETED", "완료"),
+    ]
+
+    # 프로젝트 Phase 선택지
+    PHASE_CHOICES = [
+        ("SALES", "영업"),
+        ("DESIGN", "디자인"),
+        ("CONTRACT", "계약"),
+        ("CONSTRUCTION", "시공"),
+    ]
+
     project_code = models.CharField(
         max_length=50,
         unique=True,
@@ -36,14 +52,10 @@ class Project(TimeStampedSoftDelete):
         max_length=50,
         null=True,
         blank=True,
+        choices=STATUS_CHOICES,
         help_text="프로젝트 상태"
     )
-    method = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        help_text="공법"
-    )
+    # method 필드는 제거 (ProjectMethod 모델로 대체)
     start_date = models.DateField(
         null=True,
         blank=True,
@@ -59,15 +71,71 @@ class Project(TimeStampedSoftDelete):
         db_table = 'projects'
         verbose_name = 'Project'
         verbose_name_plural = 'Projects'
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(status__in=["PLANNING", "IN_PROGRESS", "ON_HOLD", "COMPLETED", None]),
+                name='ck_project_status_enum',
+            ),
+        ]
         indexes = [
             models.Index(fields=['status'], name='idx_project_status'),
             models.Index(fields=['name'], name='idx_project_name'),
-            models.Index(fields=['method'], name='idx_method'),
             models.Index(fields=['start_date', 'end_date'], name='idx_project_dates'),
         ]
 
     def __str__(self):
         return self.name
+
+
+class ProjectMethod(TimeStampedSoftDelete):
+    """
+    프로젝트와 공법(Method)의 연결 정보를 관리하는 모델입니다.
+
+    하나의 프로젝트에 여러 공법이 연결될 수 있습니다.
+    """
+    # 공법 선택지
+    METHOD_CHOICES = [
+        ("GRB", "GRB"),
+        ("GTCIP", "GTCIP"),
+        ("PSF", "PSF"),
+        ("UNIONBRIDGE", "UNIONBRIDGE"),
+        ("UNIONPC", "UNIONPC"),
+        ("GROSSBLOCK", "GROSSBLOCK"),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='methods',
+        help_text="프로젝트"
+    )
+    method = models.CharField(
+        max_length=50,
+        choices=METHOD_CHOICES,
+        help_text="공법"
+    )
+
+    class Meta:
+        db_table = 'project_methods'
+        verbose_name = 'Project Method'
+        verbose_name_plural = 'Project Methods'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['project', 'method'],
+                name='uk_project_method'
+            ),
+            models.CheckConstraint(
+                check=models.Q(method__in=["GRB", "GTCIP", "PSF", "UNIONBRIDGE", "UNIONPC", "GROSSBLOCK"]),
+                name='ck_project_method_enum',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['project'], name='idx_project_method_project'),
+            models.Index(fields=['method'], name='idx_project_method_method'),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name} - {self.get_method_display()}"
 
 
 class ProjectCompanyLink(TimeStampedSoftDelete):

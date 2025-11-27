@@ -10,11 +10,12 @@ from django.utils import timezone
 from datetime import date
 
 from apps.infrastructure.repositories.generic import GenericRepository
-from apps.domain.projects.models import Project, ProjectCompanyLink, ProjectAssignee
+from apps.domain.projects.models import Project, ProjectCompanyLink, ProjectAssignee, ProjectMethod
 from apps.infrastructure.serializers.projects import (
     ProjectModelSerializer,
     ProjectCompanyLinkModelSerializer,
     ProjectAssigneeModelSerializer,
+    ProjectMethodModelSerializer,
 )
 
 
@@ -87,6 +88,24 @@ class ProjectRepository(GenericRepository):
 
         return self.filter(Q(id__in=project_ids))
 
+    def get_by_method(self, method: str):
+        """
+        공법별 프로젝트 조회 (ProjectMethod를 통한)
+
+        Args:
+            method: 공법
+
+        Returns:
+            QuerySet
+        """
+        # ProjectMethod를 통해 연결된 프로젝트 조회
+        project_ids = ProjectMethod.objects.filter(
+            method=method,
+            deleted_at__isnull=True
+        ).values_list('project_id', flat=True)
+
+        return self.filter(Q(id__in=project_ids))
+
     def get_active_projects(self):
         """
         진행 중인 프로젝트 조회 (현재 날짜 기준)
@@ -118,6 +137,22 @@ class ProjectRepository(GenericRepository):
             queryset = queryset.filter(end_date__lte=end_date)
 
         return queryset
+
+
+class ProjectMethodRepository(GenericRepository):
+    """
+    ProjectMethod Repository
+    """
+    model = ProjectMethod
+    serializer_class = ProjectMethodModelSerializer
+
+    def get_by_project(self, project_id: int):
+        """프로젝트별 공법 조회"""
+        return self.filter(Q(project_id=project_id))
+
+    def get_by_method(self, method: str):
+        """공법별 프로젝트 조회"""
+        return self.filter(Q(method=method))
 
 
 class ProjectCompanyLinkRepository(GenericRepository):
