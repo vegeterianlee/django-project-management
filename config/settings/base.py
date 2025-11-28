@@ -75,6 +75,7 @@ LOCAL_APPS = [
     'apps.domain.projects',
     'apps.domain.tasks',
     "apps.domain.meetings",
+    "apps.domain.sales",
 
 ]
 

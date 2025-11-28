@@ -40,5 +40,8 @@ urlpatterns = [
     # Meetings 도메인 API
     path("api/", include("apps.presentation.api.meetings.urls")),
 
+    # Sales 도메인 API
+    path("api/", include("apps.presentation.api.sales.urls")),
+
 
 ]
