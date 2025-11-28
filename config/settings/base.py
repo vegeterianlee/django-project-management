@@ -74,6 +74,7 @@ LOCAL_APPS = [
     'apps.domain.users',
     'apps.domain.projects',
     'apps.domain.tasks',
+    "apps.domain.meetings",
 
 ]
 
