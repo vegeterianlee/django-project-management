@@ -338,20 +338,20 @@ class TaskAssigneeViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
             return SuccessResponse(data=serializer.data, message="조회되었습니다.")
         return NotFoundResponse(message="주요 담당자를 찾을 수 없습니다.")
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter("user_id", int, OpenApiParameter.PATH),
-        ],
-        responses=ApiResponse[dict]
-    )
-    @action(detail=False, methods=['get'], url_path='by-users/(?P<user_id>[^/.]+)')
-    def by_user(self, request, user_id=None):
-        """
-        사용자별 작업 할당 조회
-
-        GET /api/task-assignees/by-users/1/
-        """
-        repository = TaskAssigneeRepository()
-        assignees = repository.get_by_user(int(user_id))
-        serializer = self.get_serializer(assignees, many=True)
-        return SuccessResponse(data=serializer.data, message="조회되었습니다.")
+    # @extend_schema(
+    #     parameters=[
+    #         OpenApiParameter("user_id", int, OpenApiParameter.PATH),
+    #     ],
+    #     responses=ApiResponse[dict]
+    # )
+    # @action(detail=False, methods=['get'], url_path='by-users/(?P<user_id>[^/.]+)')
+    # def by_user(self, request, user_id=None):
+    #     """
+    #     사용자별 작업 할당 조회
+    #
+    #     GET /api/task-assignees/by-users/1/
+    #     """
+    #     repository = TaskAssigneeRepository()
+    #     assignees = repository.get_by_user(int(user_id))
+    #     serializer = self.get_serializer(assignees, many=True)
+    #     return SuccessResponse(data=serializer.data, message="조회되었습니다.")

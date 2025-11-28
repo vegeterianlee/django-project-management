@@ -636,11 +636,11 @@ class TaskAssigneeAPITest(APITestCase):
         self.assertTrue(response_data['success'])
         self.assertEqual(response_data['data']['is_primary'], True)
 
-    def test_by_user_action(self):
-        """사용자별 작업 할당 조회 API 테스트 (커스텀 액션)"""
-        response = self.client.get(f'/api/task-assignees/by-users/{self.user.id}/')
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        response_data = self._get_response_data(response)
-        self.assertTrue(response_data['success'])
-        self.assertIn('data', response_data)
+    # def test_by_user_action(self):
+    #     """사용자별 작업 할당 조회 API 테스트 (커스텀 액션)"""
+    #     response = self.client.get(f'/api/task-assignees/by-users/{self.user.id}/')
+    #
+    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
+    #     response_data = self._get_response_data(response)
+    #     self.assertTrue(response_data['success'])
+    #     self.assertIn('data', response_data)
