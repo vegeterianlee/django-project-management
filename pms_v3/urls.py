@@ -36,4 +36,9 @@ urlpatterns = [
 
     # Tasks 도메인 API
     path("api/", include("apps.presentation.api.tasks.urls")),
+
+    # Meetings 도메인 API
+    path("api/", include("apps.presentation.api.meetings.urls")),
+
+
 ]
