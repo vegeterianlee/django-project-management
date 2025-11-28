@@ -43,5 +43,8 @@ urlpatterns = [
     # Sales 도메인 API
     path("api/", include("apps.presentation.api.sales.urls")),
 
+    # Designs 도메인 API
+    path("api/", include("apps.presentation.api.designs.urls")),
+
 
 ]
