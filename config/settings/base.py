@@ -139,6 +139,17 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Project Management Service API",
     "VERSION": "0.2.0",
     "DISABLE_ERRORS_AND_WARNINGS": False,
+    "ENUM_NAME_OVERRIDES": {
+            "ProjectCompanyLink.ROLE_CHOICES": "ProjectRoleEnum",
+            "Company.COMPANY_TYPES": "CompanyTypeEnum",
+            "ProjectMethod.METHOD_CHOICES": "ProjectMethodEnum",
+            "Task.STATUS_CHOICES": "TaskStatusEnum",
+            "Task.PRIORITY_CHOICES": "TaskPriorityEnum",
+            "Task.PHASE_CHOICES": "TaskPhaseEnum",
+            "Project.STATUS_CHOICES": "ProjectStatusEnum",
+            "DesignVersion.STATUS_CHOICES": "DesignVersionStatusEnum",
+            "ProjectSales.SALES_TYPE_CHOICES": "ProjectSalesTypeEnum",
+        },
 }
 # -----------------------------
 # Redis Cache

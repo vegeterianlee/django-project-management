@@ -255,7 +255,7 @@ class ProjectDesignModelSerializer(serializers.ModelSerializer):
         """
         설계 담당자 목록을 반환합니다.
         """
-        assignees = obj.assignees.filter(deleted_at__isnull=True)
+        assignees = obj.assignees.filter(deleted_at__isnull=True).order_by('is_primary', 'user_id')
         return [
             {
                 'id': assignee.id,
