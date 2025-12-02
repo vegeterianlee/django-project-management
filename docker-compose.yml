@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # PostgreSQL 데이터베이스 컨테이너
+  # PostgreSQL
   pms_v3-postgre:
     image: postgres:15-alpine
     container_name: pms_v3-postgre
@@ -19,7 +19,7 @@ services:
     networks:
       - django-pms-network
 
-  # Redis 컨테이너
+  # Redis
   pms_v3-redis:
     image: redis:7-alpine
     container_name: pms_v3-redis
@@ -57,14 +57,32 @@ services:
     networks:
       - django-pms-network
 
+  pms_v3-celery-worker:
+    build: .
+    container_name: pms_v3-celery-worker
+    command: celery -A pms_v3 worker -l info
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    networks:
+      - django-pms-network
+
+  pms_v3-celery-beat:
+    build: .
+    container_name: pms_v3-celery-beat
+    command: celery -A pms_v3 beat -l info
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    networks:
+      - django-pms-network
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
-    driver: local
-  static_volume:
-    driver: local
-  media_volume:
     driver: local
 
 networks:

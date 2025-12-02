@@ -68,6 +68,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     # Infrastructure 레이어 (공통 모델)
     'apps.infrastructure.time_stamp',
+    'apps.infrastructure.outbox',
 
     # Domain 레이어 앱들
     'apps.domain.company',

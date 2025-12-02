@@ -6,7 +6,10 @@ Time Stamp Infrastructure Models
 """
 from django.db import models
 from django.utils import timezone
-
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.apps import apps
+from apps.infrastructure.outbox.services import OutboxService
 
 class TimeStampedModel(models.Model):
     """
@@ -42,8 +45,35 @@ class TimeStampedSoftDelete(TimeStampedModel):
         소프트 삭제를 수행합니다.
         실제 레코드를 삭제하지 않고 deleted_at을 현재 시간으로 설정합니다.
         """
+        was_deleted = self.is_deleted
+
         self.deleted_at = timezone.now()
         self.save(using=using)
+        if not was_deleted:
+            self._create_outbox_event()
+
+    def _create_outbox_event(self):
+        """
+        소프트 삭제 Outbox 이벤트를 생성합니다.
+        """
+        model_name = self.__class__.__name__
+        model_app = self._meta.app_label
+
+        # 이벤트 데이터 구성
+        event_data = {
+            'model_app': model_app,
+            'model_name': model_name,
+            'instance_id': str(self.pk),
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+        }
+
+        # Outbox 이벤트 생성
+        OutboxService.create_soft_delete_event(
+            aggregate_type=f"{model_app}.{model_name}",
+            aggregate_id=self.pk,
+            event_data=event_data
+        )
+
 
     def restore(self):
         """
