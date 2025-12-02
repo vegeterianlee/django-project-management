@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
-
+from django.db import transaction
 from rest_framework import serializers
 from apps.domain.projects.models import Project, ProjectCompanyLink, ProjectAssignee, ProjectMethod
 
@@ -225,24 +225,18 @@ class ProjectModelSerializer(serializers.ModelSerializer):
         # methods_input을 validated_data에서 분리
         methods_data = validated_data.pop('methods_input', [])
 
-        # Project 생성
-        project = Project.objects.create(**validated_data)
+        # ProjectMethod 생성
+        with transaction.atomic():
+            # Project 생성
+            project = Project.objects.create(**validated_data)
 
-        # ProjectMethod 생성 (중복 방지 로직 포함)
-        if methods_data:
-            for method in methods_data:
-                # 이미 존재하는지 확인 (소프트 삭제된 것 제외)
-                existing = ProjectMethod.objects.filter(
-                    project=project,
-                    method=method,
-                    deleted_at__isnull=True
-                ).first()
-
-                if not existing:
-                    ProjectMethod.objects.create(
-                        project=project,
-                        method=method
-                    )
+            # ProjectMethod 일괄 생성
+            if methods_data:
+                project_methods = [
+                    ProjectMethod(project=project, method=method)
+                    for method in methods_data
+                ]
+                ProjectMethod.objects.bulk_create(project_methods)
 
         return project
 
@@ -357,8 +351,9 @@ class ProjectModelSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError("methods_input은 리스트여야 합니다.")
 
-        if len(value) == 0:
-            return value  # 빈 리스트는 허용
+        is_partial_update = self.instance is not None
+        if len(value) == 0 and not is_partial_update:
+            raise serializers.ValidationError("프로젝트 생성 시 공법은 포함되어야 합니다.")
 
         # 유효한 공법인지 확인
         valid_methods = [choice[0] for choice in ProjectMethod.METHOD_CHOICES]
