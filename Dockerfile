@@ -9,7 +9,8 @@ WORKDIR /app
 # 시스템 패키지 업데이트 (최소한만 설치)
 RUN apt-get update && apt-get install -y \
     build-essential \
-    libpq-dev \
+    default-libmysqlclient-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # uv 설치 (빠른 Python 패키지 관리자)

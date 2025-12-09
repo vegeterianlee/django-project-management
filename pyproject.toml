@@ -12,7 +12,7 @@ dependencies = [
     "django-celery-beat>=2.5.0",
     "celery>=5.3.4",
     "redis>=5.0.1",
-    "psycopg2-binary>=2.9.9",
+    "mysqlclient>=2.2.0",
     "gunicorn>=21.2.0",
 ]
 

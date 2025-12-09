@@ -2,20 +2,16 @@ version: '3.8'
 
 services:
   # PostgreSQL
-  pms_v3-postgre:
-    image: postgres:15-alpine
-    container_name: pms_v3-postgre
+  pms_v3-mysql:
+    image: mysql:8.0
+    container_name: pms_v3-mysql
     env_file:
       - .env
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "3306:3306"
+    command: [ "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci" ]
+    volumes:
+      - mysql_data:/var/lib/mysql
     networks:
       - django-pms-network
 
@@ -50,7 +46,7 @@ services:
     ports:
       - "${WEB_PORT}:${WEB_PORT}"
     depends_on:
-      pms_v3-postgre:
+      pms_v3-mysql:
         condition: service_healthy
       pms_v3-redis:
         condition: service_healthy
@@ -80,7 +76,7 @@ services:
       - django-pms-network
 
 volumes:
-  postgres_data:
+  mysql_data:
     driver: local
   redis_data:
     driver: local
