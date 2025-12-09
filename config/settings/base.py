@@ -41,7 +41,8 @@ ALLOWED_HOSTS = ["*"]
 # Database
 # -----------------------------
 DATABASES = {
-    "default": env.db("DATABASE_URL")
+    "default": env.db("DATABASE_URL"),
+    "CONN_MAX_AGE": 600
 }
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
