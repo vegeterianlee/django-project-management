@@ -4,6 +4,7 @@ Users Domain Models
 사용자, 부서, 직급, 권한 관련 도메인 모델을 정의합니다.
 """
 from django.db import models
+from django.utils import timezone
 
 from apps.domain.company.models import Company
 from apps.infrastructure.time_stamp.models import TimeStampedSoftDelete
@@ -13,8 +14,36 @@ class Department(models.Model):
     """
     부서 정보를 관리하는 모델입니다.
 
-    각 사용자는 하나의 부서에 소속되며, 부서명은 고유해야 합니다.
+    계층적 구조를 지원하며, 각 부서는 부서장을 가질 수 있습니다.
+    계층 구조:
+    - BUSINESS_UNIT (사업 수행팀) - 최상위
+      ├── HQ (본사 조직) - 하위
+      └── FIELD (현장 조직) - 하위
     """
+    # 조직 타입 선택지
+    ORGANIZATION_TYPE_CHOICES = [
+        ('MGMT', '경영관리팀'),
+        ('TECH', '기술수행팀'),
+        ('BUSINESS_UNIT', '사업 수행팀'),
+        ('RND', '연구개발 전담부서'),
+        ('HQ', '본사조직'),
+        ('FIELD', '현장조직'),
+    ]
+    organization_type = models.CharField(
+        max_length=20,
+        choices=ORGANIZATION_TYPE_CHOICES,
+        help_text="조직 타입"
+    )
+
+    parent_department = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='sub_departments',
+        help_text="상위 부서 (None이면 최상위 부서)"
+    )
+
     name = models.CharField(
         max_length=100,
         unique=True,
@@ -33,10 +62,69 @@ class Department(models.Model):
         verbose_name_plural = 'Departments'
         indexes = [
             models.Index(fields=['name'], name='idx_department_name'),
+            models.Index(fields=['parent_department'], name='idx_department_parent'),
+            models.Index(fields=['organization_type'], name='idx_department_org_type'),
         ]
 
     def __str__(self):
         return self.name
+
+    def get_top_level_department(self):
+        """
+        해당 부서의 최상위 부서를 반환합니다.
+
+        Returns:
+            Department: 최상위 부서 (자기 자신이 최상위면 자기 자신을 반환)
+        """
+        current = self
+        while current.parent_department is not None:
+            current = current.parent_department
+        return current
+
+    def is_sub_department_of(self, department):
+        """
+        하위 부서인지 여부를 반환합니다.
+
+        Returns:
+            bool: 하위 부서 여부
+        """
+        current = self.parent_department
+        while current:
+            if current == department:
+                return True
+            current = current.parent_department
+        return False
+
+    def get_manager(self):
+        """
+        현재 활성 manager를 반환합니다.
+
+        Returns:
+            User: 부서장
+        """
+        manager = self.managers.filter(deleted_at__isnull=True).first()
+        return manager.user if manager else None
+
+    def set_manager(self, user):
+        """
+        현재 부서장을 변경합니다.
+
+        Args:
+            user: User 인스턴스
+        """
+
+        # 기존 manager 소프트 삭제
+        DepartmentManager.objects.filter(
+            department=self,
+            deleted_at__isnull=True
+        ).update(deleted_at=timezone.now())
+
+        # 새 manager 생성
+        DepartmentManager.objects.create(
+            department=self,
+            user=user
+        )
+
 
 
 class Position(models.Model):
@@ -128,6 +216,11 @@ class User(TimeStampedSoftDelete):
         blank=True,
         help_text="계정 잠금 시간"
     )
+    joined_at = models.DateField(
+        null=True,
+        blank=True,
+        help_text="입사일"
+    )
 
     class Meta:
         db_table = 'users'
@@ -137,6 +230,7 @@ class User(TimeStampedSoftDelete):
             models.Index(fields=['email'], name='idx_user_email'),
             models.Index(fields=['company'], name='idx_user_company'),
             models.Index(fields=['department_id'], name='idx_user_department'),
+            models.Index(fields=['joined_at'], name='idx_user_joined_at'),
         ]
 
     def __str__(self):
@@ -183,6 +277,66 @@ class UserPermission(models.Model):
 
     def __str__(self):
         return f"{self.user.name} - {self.phase} ({self.permission_type})"
+
+
+class DepartmentManager(TimeStampedSoftDelete):
+    """
+    해당 부서의 manager를 결정하는 모델 입니다
+    """
+
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.CASCADE,
+        related_name='managers',
+        help_text="부서"
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='department_manager',
+        help_text="부서장"
+    )
+
+    class Meta:
+        db_table = 'department_managers'
+        verbose_name = 'Department Manager'
+        verbose_name_plural = 'Department Managers'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['department'],
+                condition=models.Q(deleted_at__isnull=True),
+                name='unique_active_department_manager'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['department'], name='idx_dept_manage_dept'),
+            models.Index(fields=['user'], name='idx_dept_manager_user'),
+            models.Index(
+                fields=['department'],
+                name='idx_dept_manager_active'
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.department.name} - {self.user.name}"
+
+
+    @classmethod
+    def get_active_managers(cls, department):
+        """
+        해당 부서의 활성화된 부서장을 반환합니다.
+
+        Args:
+            department (Department): 부서
+
+        Returns:
+            User: 부서장
+        """
+        return cls.objects.filter(
+            department=department,
+            deleted_at__isnull=True
+        ).first()
 
 
 class PhaseAccessRule(models.Model):

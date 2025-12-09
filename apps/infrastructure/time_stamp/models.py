@@ -68,10 +68,11 @@ class TimeStampedSoftDelete(TimeStampedModel):
         }
 
         # Outbox 이벤트 생성
-        OutboxService.create_soft_delete_event(
+        OutboxService.create_outbox_event(
             aggregate_type=f"{model_app}.{model_name}",
             aggregate_id=self.pk,
-            event_data=event_data
+            event_data=event_data,
+            outbox_event_type="soft_delete.propagate"
         )
 
 
