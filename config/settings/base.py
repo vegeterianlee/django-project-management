@@ -86,6 +86,9 @@ LOCAL_APPS = [
     "apps.domain.meetings",
     "apps.domain.sales",
     "apps.domain.designs",
+    "apps.domain.leaves",
+    "apps.domain.notifications",
+    "apps.domain.approvals",
 
 ]
 

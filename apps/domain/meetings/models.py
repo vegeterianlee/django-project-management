@@ -83,6 +83,10 @@ class MeetingAssignee(TimeStampedSoftDelete):
         related_name='assigned_meetings',
         help_text="참석자"
     )
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="주요 참석자인 지 여부"
+    )
 
     class Meta:
         db_table = 'meeting_assignees'
