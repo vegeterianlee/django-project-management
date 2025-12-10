@@ -48,6 +48,7 @@ class ContactPersonModelSerializer(serializers.ModelSerializer):
     ContactPerson 모델의 모든 필드를 직렬화/역직렬화합니다.
     """
     company_name = serializers.CharField(source='company.name', read_only=True)
+    position_title = serializers.CharField(source='position.title', read_only=True)
 
     class Meta:
         model = ContactPerson
@@ -55,14 +56,13 @@ class ContactPersonModelSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'email',
-            'department_id',
             'mobile',
-            'is_primary',
-            'position_id',
+            'position',
+            'position_title',
             'company',
             'company_name',
             'created_at',
             'updated_at',
             'deleted_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'deleted_at', 'company_name']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'deleted_at', 'company_name', 'position_title']

@@ -77,18 +77,12 @@ class ContactPerson(TimeStampedSoftDelete):
     """
     name = models.CharField(max_length=100, help_text="담당자명")
     email = models.CharField(max_length=255, help_text="이메일")
-    department_id = models.IntegerField(help_text="부서 ID")
     mobile = models.CharField(
         max_length=20,
         null=True,
         blank=True,
         help_text="휴대폰 번호"
     )
-    is_primary = models.BooleanField(
-        default=False,
-        help_text="주요 연락처 여부"
-    )
-    position_id = models.IntegerField(help_text="직급 ID")
     company = models.ForeignKey(
         Company,
         on_delete=models.CASCADE,
@@ -96,12 +90,22 @@ class ContactPerson(TimeStampedSoftDelete):
         help_text="소속 회사"
     )
 
+    position = models.ForeignKey(
+        'users.Position',
+        on_delete=models.CASCADE,
+        related_name='contact_persons',
+        help_text="소속 직급"
+    )
+
     class Meta:
         db_table = 'contact_persons'
         verbose_name = 'Contact Person'
         verbose_name_plural = 'Contact Persons'
         indexes = [
-            models.Index(fields=['is_primary'], name='idx_contact_person_primary'),
+            models.Index(fields=['name'], name='idx_contact_person_name'),
+            models.Index(fields=['company'], name='idx_contact_person_company'),
+            models.Index(fields=['position'], name='idx_contact_person_position'),
+
         ]
 
     def __str__(self):

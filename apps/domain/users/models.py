@@ -22,12 +22,12 @@ class Department(models.Model):
     """
     # 조직 타입 선택지
     ORGANIZATION_TYPE_CHOICES = [
-        ('MGMT', '경영관리팀'),
+        ('MGMT', '경영지원팀'),
         ('TECH', '기술수행팀'),
-        ('BUSINESS_UNIT', '사업 수행팀'),
+        ('BUSINESS_UNIT', '사업수행팀'),
         ('RND', '연구개발 전담부서'),
-        ('HQ', '본사조직'),
-        ('FIELD', '현장조직'),
+        ('HQ', '본사팀'),
+        ('FIELD', '현장팀'),
     ]
     organization_type = models.CharField(
         max_length=20,
@@ -124,6 +124,14 @@ class Department(models.Model):
             department=self,
             user=user
         )
+
+    def is_business_unit(self):
+        """
+        사업부 부서인지 여부를 반환합니다.
+        """
+        return self.organization_type == 'BUSINESS_UNIT'
+
+
 
 
 
@@ -230,8 +238,10 @@ class User(TimeStampedSoftDelete):
             models.Index(fields=['email'], name='idx_user_email'),
             models.Index(fields=['company'], name='idx_user_company'),
             models.Index(fields=['department_id'], name='idx_user_department'),
+            models.Index(fields=['position_id'], name='idx_user_position'),
             models.Index(fields=['joined_at'], name='idx_user_joined_at'),
         ]
+
 
     def __str__(self):
         return f"{self.name} ({self.user_uid})"

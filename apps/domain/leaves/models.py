@@ -19,6 +19,7 @@ class LeaveGrant(TimeStampedSoftDelete):
     GRANT_TYPE_CHOICES = [
         ('ANNUAL', '연차'),
         ('MONTH', '월차'),
+        ('', '반차'),
     ]
 
     user = models.ForeignKey(
@@ -119,7 +120,15 @@ class LeaveRequest(TimeStampedSoftDelete):
         ]
 
     def __str__(self):
-        return f"{self.user.name} - {self.start_date} ~ {self.end_date} ({self.get_phase_display()})"
+        approval_status = self.approval_request.get_status_display() if self.approval_request else "미결재"
+        return f"{self.user.name} - {self.start_date} ~ {self.end_date} ({approval_status})"
+
+    @property
+    def approval_status(self):
+        """결재 상태를 반환합니다."""
+        if self.approval_request:
+            return self.approval_request.status
+        return None
 
 
 class LeaveUsage(TimeStampedSoftDelete):

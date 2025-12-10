@@ -40,9 +40,10 @@ class OutboxService:
     """Outbox 이벤트 관리 서비스"""
 
     @staticmethod
-    def create_soft_delete_event(
+    def create_outbox_event(
         aggregate_type: str,
         aggregate_id: str,
+        outbox_event_type: str,
         event_data: Dict[str, Any]
     ) -> OutboxEvent:
         """
@@ -59,7 +60,7 @@ class OutboxService:
         """
         event = OutboxEvent.objects.create(
             id=uuid.uuid4(),
-            event_type="soft_delete.propagate",
+            event_type=outbox_event_type,
             aggregate_type=aggregate_type,
             aggregate_id=str(aggregate_id),
             event_data=event_data,
@@ -72,22 +73,6 @@ class OutboxService:
         )
 
         return event
-
-    # @staticmethod
-    # def mark_as_published(event: OutboxEvent, celery_task_id: str = None):
-    #     """이벤트를 발행됨으로 표시"""
-    #     event.status = OutboxEventStatus.PUBLISHED
-    #     event.published_at = timezone.now()
-    #     if celery_task_id:
-    #         event.celery_task_id = celery_task_id
-    #     event.save(update_fields=['status', 'published_at', 'celery_task_id'])
-    #
-    # @staticmethod
-    # def mark_as_processed(event: OutboxEvent):
-    #     """이벤트를 처리됨으로 표시"""
-    #     event.status = OutboxEventStatus.PROCESSED
-    #     event.processed_at = timezone.now()
-    #     event.save(update_fields=['status', 'processed_at'])
 
     @staticmethod
     def get_pending_events(limit: int = 100):

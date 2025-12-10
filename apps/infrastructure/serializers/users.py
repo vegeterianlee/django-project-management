@@ -18,7 +18,7 @@ class DepartmentModelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Department
-        fields = ['id', 'name', 'description']
+        fields = ['id', 'name', 'organization_type', 'parent_department', 'description']
         read_only_fields = ['id']
 
 
