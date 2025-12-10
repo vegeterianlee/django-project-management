@@ -1,3 +1,4 @@
+# apps/domain/company/tests.py
 """
 Company Domain Tests
 
@@ -11,6 +12,7 @@ from rest_framework import status
 import json
 
 from apps.domain.company.models import Company, ContactPerson
+from apps.domain.users.models import Position  # ✅ 추가
 
 
 # ============================================
@@ -59,19 +61,26 @@ class ContactPersonModelTest(TestCase):
             name="테스트 회사",
             type="CLIENT",
         )
+        # ✅ Position 인스턴스 생성
+        cls.position = Position.objects.create(
+            title="CEO",
+            description="최고경영자",
+            hierarchy_level=10,
+            is_executive=True,
+        )
         cls.contact_person = ContactPerson.objects.create(
             name="담당자",
+            mobile="010-1234-5678",
             email="contact@company.com",
-            department_id=1,
-            position_id=1,
+            position=cls.position,  # ✅ Position 인스턴스 사용
             company=cls.company,
-            is_primary=True,
         )
 
     def test_contact_person_creation(self):
         """ContactPerson 생성 테스트"""
         self.assertIsNotNone(self.contact_person.id)
         self.assertEqual(self.contact_person.company, self.company)
+        self.assertEqual(self.contact_person.position, self.position)  # ✅ 추가 검증
 
 
 # ============================================
@@ -252,13 +261,19 @@ class ContactPersonAPITest(APITestCase):
             name="테스트 회사",
             type="CLIENT",
         )
+        # ✅ Position 인스턴스 생성
+        cls.position = Position.objects.create(
+            title="CEO",
+            description="최고경영자",
+            hierarchy_level=10,
+            is_executive=True,
+        )
         cls.contact_person = ContactPerson.objects.create(
             name="담당자",
             email="contact@company.com",
-            department_id=1,
-            position_id=1,
+            position=cls.position,  # ✅ Position 인스턴스 사용
             company=cls.company,
-            is_primary=True,
+            mobile="010-1234-5678",
         )
 
     def _get_response_data(self, response):
@@ -296,13 +311,20 @@ class ContactPersonAPITest(APITestCase):
     # ========== CREATE ==========
     def test_create_contact_person(self):
         """연락 담당자 생성 API 테스트 (Create)"""
+        # ✅ 새로운 Position 생성
+        cto_position = Position.objects.create(
+            title="CTO",
+            description="최고기술책임자",
+            hierarchy_level=9,
+            is_executive=True,
+        )
+
         data = {
             "name": "새 담당자",
             "email": "new@company.com",
-            "department_id": 1,
-            "position_id": 1,
+            "position": cto_position.id,  # ✅ Position ID 사용
             "company": self.company.id,
-            "is_primary": False,
+            "mobile": "010-9876-5432",
         }
         response = self.client.post('/api/contact-persons/', data, format='json')
 
@@ -316,13 +338,20 @@ class ContactPersonAPITest(APITestCase):
     # ========== UPDATE ==========
     def test_update_contact_person(self):
         """연락 담당자 전체 수정 API 테스트 (Update - PUT)"""
+        # ✅ 새로운 Position 생성
+        cto_position = Position.objects.create(
+            title="CTO",
+            description="최고기술책임자",
+            hierarchy_level=9,
+            is_executive=True,
+        )
+
         data = {
             "name": "수정된 담당자",
             "email": "updated@company.com",
-            "department_id": 1,
-            "position_id": 1,
+            "position": cto_position.id,  # ✅ Position ID 사용
             "company": self.company.id,
-            "is_primary": False,
+            "mobile": "010-9876-5432",
         }
         response = self.client.put(
             f'/api/contact-persons/{self.contact_person.id}/',
@@ -338,10 +367,12 @@ class ContactPersonAPITest(APITestCase):
         self.contact_person.refresh_from_db()
         self.assertEqual(self.contact_person.name, "수정된 담당자")
         self.assertEqual(self.contact_person.email, "updated@company.com")
+        self.assertEqual(self.contact_person.position.id, cto_position.id)  # ✅ Position 변경 확인
 
     def test_partial_update_contact_person(self):
         """연락 담당자 부분 수정 API 테스트 (Update - PATCH)"""
-        data = {"is_primary": False}
+        # ✅ is_primary 필드 제거, 다른 필드로 수정
+        data = {"mobile": "010-9999-8888"}  # ✅ 모델에 있는 필드로 변경
         response = self.client.patch(
             f'/api/contact-persons/{self.contact_person.id}/',
             data,
@@ -354,7 +385,7 @@ class ContactPersonAPITest(APITestCase):
 
         # DB에서 실제로 수정되었는지 확인
         self.contact_person.refresh_from_db()
-        self.assertFalse(self.contact_person.is_primary)
+        self.assertEqual(self.contact_person.mobile, "010-9999-8888")
         # 다른 필드는 변경되지 않았는지 확인
         self.assertEqual(self.contact_person.name, "담당자")
 
@@ -387,13 +418,4 @@ class ContactPersonAPITest(APITestCase):
         self.assertIsInstance(response_data['data'], list)
         self.assertGreater(len(response_data['data']), 0)
 
-    def test_primary_contact_action(self):
-        """주요 연락 담당자 조회 API 테스트 (커스텀 액션)"""
-        response = self.client.get(
-            f'/api/contact-persons/primary/{self.company.id}/'
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        response_data = self._get_response_data(response)
-        self.assertTrue(response_data['success'])
-        self.assertTrue(response_data['data']['is_primary'])
+    # ✅ test_primary_contact_action 제거 (is_primary 필드가 모델에 없음)

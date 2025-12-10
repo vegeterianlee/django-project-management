@@ -87,7 +87,7 @@ class ProjectSales(TimeStampedSoftDelete):
             models.CheckConstraint(
                 check=models.Q(sales_type__in=[
                     "METHOD_REVIEW", "DESIGN_CHANGE", "TECHNICAL_PROPOSAL",
-                    "PRIVATE_INVESTMENT", "DETAILED_DESIGN", "TURNKEY", "DESIGN_APPLICATION", None
+                    "PRIVATE_INVESTMENT", "DETAILED_DESIGN", "TURNKEY", "DESIGN_APPLICATION"
                 ]),
                 name='ck_sales_type_enum',
             ),

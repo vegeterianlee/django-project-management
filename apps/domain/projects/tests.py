@@ -350,7 +350,7 @@ class ProjectAPITest(APITestCase):
             "project_code": "PRJ001",
             "name": "수정된 프로젝트",
             "description": "수정된 프로젝트 설명",
-            "status": "IN_PROGRESS",  # ✅ Enum 값으로 변경
+            "status": "IN_PROGRESS",
             "start_date": "2024-01-01",
             "end_date": "2024-12-31",
         }

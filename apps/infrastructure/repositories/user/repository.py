@@ -87,3 +87,20 @@ class PhaseAccessRuleRepository(GenericRepository):
     def get_by_phase(self, phase: str):
         """Phase로 접근 규칙 조회"""
         return self.filter(Q(phase=phase)).first()
+
+class DepartmentRepository(GenericRepository):
+    """Department Repository"""
+    model = Department
+    serializer_class = DepartmentModelSerializer
+
+    def get_by_organization_type(self, org_type: str):
+        """조직 타입으로 부서 조회"""
+        return self.filter(Q(organization_type=org_type))
+
+    def get_top_level_departments(self):
+        """최상위 부서 조회"""
+        return self.filter(Q(parent_department__isnull=True))
+
+    def get_sub_departments(self, department_id: int):
+        """하위 부서 조회"""
+        return self.filter(Q(parent_department_id=department_id))
