@@ -1,8 +1,13 @@
+"""
+Approval Domain AppConfig
+
+Approval 도메인 앱 설정을 정의합니다.
+"""
 from django.apps import AppConfig
 
 
-class ApprovalsConfig(AppConfig):
-    """Approvals 도메인 앱 설정"""
+class ApprovalConfig(AppConfig):
+    """Approval 도메인 앱 설정"""
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.domain.approvals'  # 전체 경로 명시
+    name = 'apps.domain.approvals'
     verbose_name = 'Approvals Management'
