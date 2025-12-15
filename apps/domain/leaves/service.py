@@ -357,7 +357,7 @@ class LeaveService:
         leave_request_id: int,
         cancel_reason: str,
         cancelled_by_user_id: int
-    ):
+    ) -> LeaveRequest:
         """
         휴가 신청을 취소합니다.
 
@@ -383,6 +383,7 @@ class LeaveService:
             id=leave_request_id,
             deleted_at__isnull=True
         )
+        # 취소 가능 상태 확인
         if leave_request.status == 'CANCELLED':
             raise ValidationException("이미 취소된 휴가 신청입니다.")
 
@@ -394,7 +395,6 @@ class LeaveService:
                 deleted_at__isnull=True
             ).exists():
                 LeaveService.rollback_leave_usage(leave_request_id=leave_request_id)
-            return
 
         # 2. 상태 변경
         leave_request.status = 'CANCELLED'
@@ -402,6 +402,7 @@ class LeaveService:
         leave_request.cancel_reason = cancel_reason
         leave_request.save(update_fields=['status', 'cancelled_at', 'cancel_reason'])
 
+        return leave_request
 
     @staticmethod
     def rollback_leave_usage(leave_request_id: int) -> None:
@@ -419,10 +420,22 @@ class LeaveService:
         ).select_related('leave_grant')
 
         # 각 LeaveGrant에 반환
+        grants_to_update = []
         for usage in usages:
             grant = usage.leave_grant
             grant.remaining_days += usage.used_days
-            grant.save(update_fields=['remaining_days'])
 
-            # LeaveUsage 삭제
-            usage.delete()
+            # 잔액이 0보다 커지면 삭제 조치 해제
+            if grant.remaining_days > 0 and grant.deleted_at is not None:
+                grant.deleted_at = None
+
+            grants_to_update.append(grant)
+
+        if grants_to_update:
+            LeaveGrant.objects.bulk_update(
+                grants_to_update,
+                ["remaining_days", "deleted_at"]
+            )
+
+        # LeaveUsage 소프트 삭제
+        usages.delete()

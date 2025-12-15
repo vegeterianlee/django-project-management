@@ -7,6 +7,7 @@ from django.db import models
 from django.utils import timezone
 
 from apps.domain.company.models import Company
+from apps.domain.enums.departments import ORGANIZATION_TYPE_CHOICES
 from apps.infrastructure.time_stamp.models import TimeStampedSoftDelete
 
 
@@ -20,15 +21,7 @@ class Department(models.Model):
       ├── HQ (본사 조직) - 하위
       └── FIELD (현장 조직) - 하위
     """
-    # 조직 타입 선택지
-    ORGANIZATION_TYPE_CHOICES = [
-        ('MGMT', '경영지원팀'),
-        ('TECH', '기술수행팀'),
-        ('BUSINESS_UNIT', '사업수행팀'),
-        ('RND', '연구개발 전담부서'),
-        ('HQ', '본사팀'),
-        ('FIELD', '현장팀'),
-    ]
+
     organization_type = models.CharField(
         max_length=20,
         choices=ORGANIZATION_TYPE_CHOICES,
