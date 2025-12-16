@@ -12,6 +12,7 @@ from rest_framework import status
 from decimal import Decimal
 from datetime import date, timedelta
 from django.utils import timezone
+from django.db import models
 import json
 
 from apps.domain.leaves.models import LeaveGrant, LeaveRequest, LeaveUsage
@@ -117,7 +118,7 @@ class LeaveApprovalIntegrationTest(APITestCase):
         cls.policy_step1 = ApprovalPolicyStep.objects.create(
             policy=cls.approval_policy,
             step_order=1,
-            approver_selector_type='DEPARTMENT_MANAGER'
+            approver_selector_type='DEPT_MANAGER'
         )
         cls.policy_step2 = ApprovalPolicyStep.objects.create(
             policy=cls.approval_policy,
@@ -137,6 +138,7 @@ class LeaveApprovalIntegrationTest(APITestCase):
             return None
         if hasattr(response, 'content') and response.content:
             try:
+
                 return json.loads(response.content.decode('utf-8'))
             except json.JSONDecodeError:
                 return {}
@@ -271,6 +273,8 @@ class LeaveApprovalIntegrationTest(APITestCase):
             "delegate_user": self.delegate_user.id,
         }
         response = self.client.post('/api/leave-requests/', data, format='json')
+        self._get_response_data(response)
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         leave_request = LeaveRequest.objects.get(user=self.requester)
@@ -305,6 +309,12 @@ class LeaveApprovalIntegrationTest(APITestCase):
             approve_data,
             format='json'
         )
+        #print("response", response)
+        #print("response_content", json.dumps(response.data, ensure_ascii=False, indent=2))
+        #print("response_data", json.dumps(response.data, ensure_ascii=False, indent=2))
+        #response_dict = json.dumps(response.data, ensure_ascii=False, indent=2)
+        #print("response_dict", response_dict)
+        #print("response.content", json.dumps(response_dict, ensure_ascii=False, indent=2))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # 5. 최종 상태 확인
@@ -602,49 +612,119 @@ class LeaveApprovalIntegrationTest(APITestCase):
         leave_request = LeaveRequest.objects.get(user=self.requester)
         approval_request = leave_request.approval_request
 
-        # 2. 휴가 신청 생성 시 알림 확인 (UseCase에서 save() 호출 여부에 따라)
-        initial_notifications = Notification.objects.filter(
+        # 초기 잔액 확인
+        initial_remaining = self.leave_grant.remaining_days
+
+        # 2. 휴가 신청 생성 시 첫 번째 결재자에게 알림 발송 확인
+        initial_notification = Notification.objects.filter(
+            sender=self.requester,
             receiver=self.approver1,
             notification_type="LEAVE_REQUEST",
+            notification_type_id=approval_request.id,
             deleted_at__isnull=True
-        ).count()
-        # 알림이 저장되었는지 확인 (UseCase에서 save() 호출 여부에 따라)
+        ).first()
 
-        # 3. 첫 번째 결재자 승인
+        self.assertIsNotNone(initial_notification, "첫 번째 결재자에게 휴가 신청 알림이 발송되어야 합니다.")
+        self.assertIn("휴가 신청 결재 건", initial_notification.message)
+        self.assertFalse(initial_notification.is_read, "알림은 아직 읽지 않은 상태여야 합니다.")
+
+        # 3. 결재 라인 확인
         approval_lines = ApprovalLine.objects.filter(
             approval_request=approval_request
         ).order_by('step_order')
+        self.assertEqual(approval_lines.count(), 2)
 
+        # 4. 첫 번째 결재자 승인
         self.client.force_authenticate(user=self.approver1)
         approve_data = {"comment": "1차 승인"}
-        self.client.post(
+        response = self.client.post(
             f'/api/approval-lines/{approval_lines[0].id}/approve/',
             approve_data,
             format='json'
         )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # 4. 두 번째 결재자에게 알림 확인
-        second_notifications = Notification.objects.filter(
+        # 첫 번째 결재 라인 상태 확인
+        approval_lines[0].refresh_from_db()
+        self.assertEqual(approval_lines[0].status, 'APPROVED')
+        self.assertIsNotNone(approval_lines[0].acted_at)
+
+        # ApprovalRequest는 아직 IN_PROGRESS 상태
+        approval_request.refresh_from_db()
+        self.assertEqual(approval_request.status, 'IN_PROGRESS')
+
+        # LeaveRequest는 아직 PENDING 상태
+        leave_request.refresh_from_db()
+        self.assertEqual(leave_request.status, 'PENDING')
+
+        # 5. 두 번째 결재자에게 알림 발송 확인
+        second_notification = Notification.objects.filter(
+            sender=self.requester,
             receiver=self.approver2,
             notification_type="LEAVE_APPROVAL_REQUIRED",
+            notification_type_id=approval_request.id,
             deleted_at__isnull=True
-        ).count()
+        ).first()
 
-        # 5. 두 번째 결재자 승인 (최종 승인)
+        self.assertIsNotNone(second_notification, "두 번째 결재자에게 결재 요청 알림이 발송되어야 합니다.")
+        self.assertIn("휴가 신청 결재가 필요합니다", second_notification.message)
+        self.assertFalse(second_notification.is_read, "알림은 아직 읽지 않은 상태여야 합니다.")
+
+        # 6. 두 번째 결재자 승인 (최종 승인)
         self.client.force_authenticate(user=self.approver2)
         approve_data = {"comment": "최종 승인"}
-        self.client.post(
+        response = self.client.post(
             f'/api/approval-lines/{approval_lines[1].id}/approve/',
             approve_data,
             format='json'
         )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # 6. 신청자에게 승인 완료 알림 확인
-        final_notifications = Notification.objects.filter(
+        # 7. 최종 상태 확인
+        approval_request.refresh_from_db()
+        self.assertEqual(approval_request.status, 'APPROVED')
+        self.assertIsNotNone(approval_request.approved_at)
+
+        leave_request.refresh_from_db()
+        self.assertEqual(leave_request.status, 'APPROVED')
+
+        # 8. LeaveUsage 생성 확인
+        leave_usages = LeaveUsage.objects.filter(leave_request=leave_request)
+        self.assertTrue(leave_usages.exists(), "LeaveUsage가 생성되어야 합니다.")
+
+        total_used = sum(usage.used_days for usage in leave_usages)
+        self.assertEqual(total_used, Decimal('3.00'), "사용된 휴가 일수는 3일이어야 합니다.")
+
+        # 9. LeaveGrant 잔액 차감 확인
+        self.leave_grant.refresh_from_db()
+        self.assertEqual(
+            self.leave_grant.remaining_days,
+            initial_remaining - Decimal('3.00'),
+            "LeaveGrant 잔액이 3일 차감되어야 합니다."
+        )
+
+        # 10. 신청자에게 승인 완료 알림 발송 확인
+        final_notification = Notification.objects.filter(
+            sender=self.approver2,
             receiver=self.requester,
             notification_type="LEAVE_APPROVED",
+            notification_type_id=leave_request.id,
+            deleted_at__isnull=True
+        ).first()
+
+        self.assertIsNotNone(final_notification, "신청자에게 승인 완료 알림이 발송되어야 합니다.")
+        self.assertIn("휴가 신청이 승인되었습니다", final_notification.message)
+        self.assertFalse(final_notification.is_read, "알림은 아직 읽지 않은 상태여야 합니다.")
+
+        # 11. 전체 알림 개수 확인 (총 3개의 알림이 발송되어야 함)
+        # - 첫 번째 결재자에게 휴가 신청 알림 (LEAVE_REQUEST)
+        # - 두 번째 결재자에게 결재 요청 알림 (LEAVE_APPROVAL_REQUIRED)
+        # - 신청자에게 승인 완료 알림 (LEAVE_APPROVED)
+        total_notifications = Notification.objects.filter(
+            models.Q(sender=self.requester) | models.Q(receiver=self.requester) |
+            models.Q(sender=self.approver1) | models.Q(receiver=self.approver1) |
+            models.Q(sender=self.approver2) | models.Q(receiver=self.approver2),
             deleted_at__isnull=True
         ).count()
 
-        # 알림 개수 확인 (UseCase에서 save() 호출 여부에 따라 다름)
-        # 일단 알림이 생성되었는지 확인
+        self.assertGreaterEqual(total_notifications, 3, "최소 3개의 알림이 발송되어야 합니다.")

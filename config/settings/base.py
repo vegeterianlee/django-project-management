@@ -142,6 +142,7 @@ AUTH_PASSWORD_VALIDATORS = [
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "EXCEPTION_HANDLER": "apps.infrastructure.exceptions.custom_handlers.custom_exception_handler",
 }
 
 SPECTACULAR_SETTINGS = {

@@ -18,7 +18,7 @@ from apps.domain.users.models import User, Department, Position
 from apps.domain.company.models import Company
 from apps.domain.approvals.models import ApprovalRequest
 from apps.infrastructure.serializers.leaves import LeaveRequestModelSerializer
-
+from apps.domain.users.models import DepartmentManager
 
 # ============================================
 # 모델 단위 테스트 - TestCase 사용
@@ -255,6 +255,15 @@ class LeaveRequestAPITest(APITestCase):
             organization_type='TECH'
         )
         cls.position = Position.objects.create(title="시니어 개발자")
+        cls.manager = User.objects.create(
+            user_uid="manager_001",
+            name="부서장",
+            email="manager@example.com",
+            position_id=cls.position.id,
+            department_id=cls.department.id,
+            company=cls.company,
+            password="hashed_password",
+        )
         cls.user = User.objects.create(
             user_uid="test_user_001",
             name="테스트 사용자",
@@ -273,6 +282,11 @@ class LeaveRequestAPITest(APITestCase):
             company=cls.company,
             password="hashed_password",
         )
+        DepartmentManager.objects.create(
+            department=cls.department,
+            user=cls.manager
+        )
+
         # 휴가 지급 (잔액 확보)
         cls.leave_grant = LeaveGrant.objects.create(
             user=cls.user,
@@ -294,7 +308,7 @@ class LeaveRequestAPITest(APITestCase):
         #print("response", response)
         if hasattr(response, 'content') and response.content:
             try:
-                print("response_content", response.content.decode('utf-8'))
+                #print("response_content", response.content.decode('utf-8'))
                 return json.loads(response.content.decode('utf-8'))
             except json.JSONDecodeError:
                 return {}
