@@ -6,6 +6,7 @@ Leaves 도메인의 모델을 직렬화/역직렬화하는 Serializer입니다.
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps.domain.leaves.models import LeaveGrant, LeaveRequest, LeaveUsage
+from decimal import Decimal
 
 class LeaveGrantModelSerializer(serializers.ModelSerializer):
     """
@@ -33,6 +34,7 @@ class LeaveGrantModelSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id',
+            "user",
             'created_at',
             'updated_at',
             'deleted_at',
@@ -111,12 +113,14 @@ class LeaveRequestModelSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             'id',
+            "user",
             'created_at',
             'updated_at',
             'deleted_at',
             'user_name',
             'delegate_user_name',
             'leave_type_display',
+            'approval_request',
             'approval_request_id',
             'status',
             'status_display',
@@ -191,26 +195,47 @@ class LeaveRequestModelSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'end_date': '반차는 시작일과 종료일이 같아야 합니다.'
                 })
-            if total_days and total_days != 0.5:
-                raise serializers.ValidationError({
-                    'total_days': '반차는 0.5일만 신청 가능합니다.'
-                })
+            if total_days is not None:
+                # Decimal로 변환하여 비교
+                if isinstance(total_days, str):
+                    total_days_decimal = Decimal(total_days)
+                elif isinstance(total_days, Decimal):
+                    total_days_decimal = total_days
+                else:
+                    total_days_decimal = Decimal(str(total_days))
+
+                if total_days_decimal != Decimal('0.5'):
+                    raise serializers.ValidationError({
+                        'total_days': '반차는 0.5일만 신청 가능합니다.'
+                    })
             # 반차는 여기서 반환
             return data
 
-        # 연차 검증
-        else:
-            # total_days 검증
-            if total_days is not None and total_days <= 0:
-                raise serializers.ValidationError({
-                    'total_days': '휴가 일수는 0보다 커야 합니다.'
-                })
+        # 연차 검증 (반차가 아닌 경우만)
+        if total_days is not None and total_days <= 0:
+            raise serializers.ValidationError({
+                'total_days': '휴가 일수는 0보다 커야 합니다.'
+            })
 
+        # 연차의 경우 날짜 차이 검증
+        if start_date and end_date and total_days:
             date_diff = (end_date - start_date).days + 1
-            if date_diff != total_days:
-                raise serializers.ValidationError(
-                    f"연차의 시작일과 종료일의 차이는 요청 휴가 일수와 같아야 합니다."
-                )
+
+            # Decimal 타입으로 변환하여 비교
+            if isinstance(total_days, str):
+                total_days_decimal = Decimal(total_days)
+            elif isinstance(total_days, Decimal):
+                total_days_decimal = total_days
+            else:
+                total_days_decimal = Decimal(str(total_days))
+
+            # int와 Decimal 비교를 위해 둘 다 Decimal로 변환
+            date_diff_decimal = Decimal(str(date_diff))
+
+            if date_diff_decimal != total_days_decimal:
+                raise serializers.ValidationError({
+                    'total_days': f'연차의 시작일과 종료일의 차이({date_diff}일)는 요청 휴가 일수({total_days_decimal}일)와 같아야 합니다.'
+                })
 
             return data
 
@@ -243,6 +268,7 @@ class LeaveUsageModelSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id',
+            "user",
             'created_at',
             'updated_at',
             'deleted_at',

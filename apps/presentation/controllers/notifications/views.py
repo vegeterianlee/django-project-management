@@ -62,19 +62,6 @@ class NotificationViewSet(StandardViewSetMixin, viewsets.ReadOnlyModelViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter("page", int, OpenApiParameter.QUERY),
-            OpenApiParameter("page_size", int, OpenApiParameter.QUERY),
-            OpenApiParameter("is_read", str, OpenApiParameter.QUERY),
-            OpenApiParameter("notification_type", str, OpenApiParameter.QUERY),
-        ],
-        responses=ApiResponse[dict]
-    )
-    def list(self, request, *args, **kwargs):
-        """알림 목록 조회 (전체 알림)"""
-        return super().list(request, *args, **kwargs)
-
-    @extend_schema(
-        parameters=[
             OpenApiParameter("id", int, OpenApiParameter.PATH),
         ],
         responses=ApiResponse[dict]
@@ -141,6 +128,5 @@ class NotificationViewSet(StandardViewSetMixin, viewsets.ReadOnlyModelViewSet):
         """본인의 미읽음 알림 목록 조회"""
         notifications = NotificationService.get_unread_notifications(user_id=request.user.id)
         return SuccessResponse(
-            data=self.get_serializer(notification).data
-            for notification in notifications
+            data=self.get_serializer(notifications, many=True).data  # ✅ many=True 추가
         )

@@ -20,7 +20,7 @@ from apps.infrastructure.serializers.leaves import (
 )
 from apps.application.leave_aprroval.usecase import LeaveApprovalUseCase
 from apps.infrastructure.exceptions.exceptions import ValidationException
-
+import logging
 
 @extend_schema(tags=['Leave'])
 class LeaveRequestViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
@@ -82,6 +82,7 @@ class LeaveRequestViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
         """휴가 신청 생성"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        logging.info(f"request 구조 확인: {request}")
         leave_request, approval_request = LeaveApprovalUseCase.create_leave_request_with_approval(
             user_id=request.user.id,
             leave_type=serializer.validated_data['leave_type'],

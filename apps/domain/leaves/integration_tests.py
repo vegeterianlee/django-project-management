@@ -206,9 +206,8 @@ class LeaveApprovalIntegrationTest(APITestCase):
             deleted_at__isnull=True
         ).first()
 
-        # 알림이 저장되었는지 확인 (UseCase에서 save() 호출 여부에 따라)
-        if notification:
-            self.assertIn("휴가 신청 결재 건", notification.message)
+        self.assertIsNotNone(notification, "첫 번째 결재자에게 알림이 발송되어야 합니다.")
+        self.assertIn("휴가 신청 결재 건", notification.message)
 
         # 4. 결재 라인 확인
         approval_lines = ApprovalLine.objects.filter(
