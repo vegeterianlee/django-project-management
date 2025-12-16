@@ -229,12 +229,12 @@ class LeaveService:
             if grant.remaining_days < Decimal('0.5'):
                 raise ValidationException("반차 사용을 위한 남은 휴가 수가 부족합니다.")
 
-            usage = LeaveUsage.objects.create(
+            usage = LeaveUsage(
                 user=leave_request.user,
                 leave_grant=grant,
                 leave_request=leave_request,
                 used_days=Decimal('0.5'),
-                used_at=leave_request.start_date
+                used_date=leave_request.start_date
             )
             usage_records.append(usage)
 
@@ -261,7 +261,7 @@ class LeaveService:
                 # 하루 사용량 (월차로 들어오는 연차 기준)
                 daily_use = min(remaining_to_use, grant.remaining_days)
 
-                usage = LeaveUsage.objects.create(
+                usage = LeaveUsage(
                     user=leave_request.user,
                     leave_grant=grant,
                     leave_request=leave_request,
@@ -276,7 +276,7 @@ class LeaveService:
 
                 grants_to_update.append(grant)
                 remaining_to_use -= daily_use
-                current_date += timedelta(days=daily_use)
+                current_date += timedelta(days=float(daily_use))
 
             if remaining_to_use > 0:
                 raise ValidationException(f"잔여 휴가 일수가 부족합니다. 부족한 일수: {remaining_to_use}일")

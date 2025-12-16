@@ -82,6 +82,10 @@ class ApprovalService:
         if not department:
             raise ValidationException('해당 유저의 부서를 찾을 수 없습니다.')
 
+        manager = department.get_manager()
+        if not manager:
+            raise ValidationException('해당 부서의 부서장을 찾을 수 없습니다.')
+
         if user.id == department.get_manager().id:
             return True
         else:

@@ -116,6 +116,8 @@ class LeaveRequest(TimeStampedSoftDelete):
     approval_request = models.OneToOneField(
         'approvals.ApprovalRequest',
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name='leave_request',
         help_text="결재 요청 (1대1 관계)"
     )

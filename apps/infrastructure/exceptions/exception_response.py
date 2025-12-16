@@ -25,25 +25,25 @@ def exception_to_response(exc: BaseCustomException):
     if isinstance(exc, EntityNotFoundException):
         return NotFoundResponse(
             data=exc.errors,
-            message=str(exc.detail) if hasattr(exc, 'detail') else exc.message,
+            message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
             key=exc.key
         )
     elif isinstance(exc, ValidationException):
         return ValidationErrorResponse(
             data=exc.errors,
-            message=str(exc.detail) if hasattr(exc, 'detail') else exc.message,
+            message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
             key=exc.key
         )
     elif isinstance(exc, PermissionDeniedException):
         return PermissionDeniedResponse(
             data=exc.errors,
-            message=str(exc.detail) if hasattr(exc, 'detail') else exc.message,
+            message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
             key=exc.key
         )
     elif isinstance(exc, (EntityDeleteRestrictedException, EntityDeleteProtectedException)):
         return ConflictResponse(
             data=exc.errors,
-            message=str(exc.detail) if hasattr(exc, 'detail') else exc.message,
+            message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
             key=exc.key
         )
     else:
