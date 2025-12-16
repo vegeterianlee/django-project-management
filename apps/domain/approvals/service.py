@@ -176,7 +176,7 @@ class ApprovalService:
         ).first()
 
         if not policy:
-            raise ValidationException('해당 요청 타입({approval_request.request_type})과 부서 타입({user_department.organization_type})에 대한 결재 정책을 찾을 수 없습니다.')
+            raise ValidationException(f'해당 요청 타입({approval_request.request_type})과 부서 타입({user_department.organization_type})에 대한 결재 정책을 찾을 수 없습니다.')
 
         policy_steps = ApprovalPolicyStep.objects.filter(
             policy=policy,
@@ -298,7 +298,7 @@ class ApprovalService:
 
         Args:
             approval_line_id: 결재 라인 ID
-            approver_user_id: 결재자 사용자 ID
+            approval_user_id: 결재자 사용자 ID
             comment: 반려 사유 (필수)
 
         Returns:

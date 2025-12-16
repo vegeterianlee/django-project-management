@@ -4,10 +4,8 @@ Notifications Domain Service
 알림 도메인의 비즈니스 로직을 처리하는 서비스입니다.
 """
 from typing import List, Optional
-from django.db import models
 from django.utils import timezone
 from apps.domain.notifications.models import Notification
-from apps.domain.users.models import User
 from apps.infrastructure.exceptions.exceptions import ValidationException
 
 
@@ -52,7 +50,7 @@ class NotificationService:
             notification_type_id=notification_type_id,
             message=message
         )
-
+        notification.save()
         return notification
 
     @staticmethod
@@ -108,11 +106,12 @@ class NotificationService:
         """
         notification = Notification.objects.get(
             id=notification_id,
+            receiver_id=user_id,
             deleted_at__isnull=True,
         )
 
         # 수신자 확인
-        if notification.sender_id != user_id:
+        if notification.receiver_id != user_id:
             raise ValidationException("본인의 알림만 읽음 처리할 수 있습니다.")
 
         if not notification.is_read:
@@ -121,6 +120,31 @@ class NotificationService:
             notification.save(update_fields=["is_read", "read_at"])
 
         return notification
+
+    @staticmethod
+    def mark_all_as_read(user_id: int) -> int:
+        """
+        사용자의 안 읽은 목록들을 모두 읽은 것으로 확인합니다.
+
+        :param user_id:
+        :return:
+        """
+
+        notifications = Notification.objects.filter(
+            receiver_id=user_id,
+            is_read=False,
+            deleted_at__isnull=True,
+        ).all()
+
+        noti_list = []
+        for noti in notifications:
+            noti.is_read = True
+            noti.read_at = timezone.now()
+            noti_list.append(noti)
+
+        Notification.objects.bulk_update(noti_list, ["is_read", "read_at"])
+        return len(noti_list)
+
 
     @staticmethod
     def get_unread_count(user_id: int) -> int:

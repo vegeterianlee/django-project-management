@@ -89,7 +89,6 @@ LOCAL_APPS = [
     "apps.domain.leaves",
     "apps.domain.notifications",
     "apps.domain.approvals",
-
 ]
 
 INSTALLED_APPS += THIRD_PARTY_APPS + LOCAL_APPS
