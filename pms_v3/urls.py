@@ -46,5 +46,13 @@ urlpatterns = [
     # Designs 도메인 API
     path("api/", include("apps.presentation.api.designs.urls")),
 
+    # Leaves 도메인 API
+    path("api/", include("apps.presentation.api.leaves.urls")),
+
+    # Approvals 도메인 API
+    path("api/", include("apps.presentation.api.approvals.urls")),
+
+    # Notifications 도메인 API
+    path("api/", include("apps.presentation.api.notifications.urls"))
 
 ]

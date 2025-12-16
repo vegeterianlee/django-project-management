@@ -117,8 +117,6 @@ class LeaveRequest(TimeStampedSoftDelete):
         'approvals.ApprovalRequest',
         on_delete=models.CASCADE,
         related_name='leave_request',
-        null=True,
-        blank=True,
         help_text="결재 요청 (1대1 관계)"
     )
 
@@ -149,9 +147,7 @@ class LeaveRequest(TimeStampedSoftDelete):
     # 위임 사용자 (업무 위임 대상)
     delegate_user = models.ForeignKey(
         User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
         related_name='delegated_leave_requests',
         help_text="업무 위임 사용자"
     )

@@ -277,9 +277,9 @@ class ApprovalPolicyStep(TimeStampedSoftDelete):
         verbose_name_plural = 'Approval Policy Steps'
         unique_together = [['policy', 'step_order']]
         indexes = [
-            models.Index(fields=['policy'], name='idx_approval_policy_step_policy'),
-            models.Index(fields=['step_order'], name='idx_approval_policy_step_order'),
-            models.Index(fields=['approver_selector_type'], name='idx_approval_policy_step_selector'),
+            models.Index(fields=['policy'], name='idx_policy_step_policy'),
+            models.Index(fields=['step_order'], name='idx_policy_step_order'),
+            models.Index(fields=['approver_selector_type'], name='idx_policy_step_selector'),
         ]
 
     def __str__(self):

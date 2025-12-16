@@ -364,7 +364,7 @@ class LeaveService:
         Args:
             leave_request: 취소할 휴가 신청
             cancel_reason: 취소 사유
-            cancelled_by: 취소한 사용자
+            cancelled_by_user_id: 취소한 사용자
 
         Returns:
             LeaveRequest: 취소된 휴가 신청
@@ -388,7 +388,7 @@ class LeaveService:
             raise ValidationException("이미 취소된 휴가 신청입니다.")
 
         # 승인된 경우에는 이전 상태로 롤백해야됨
-        if leave_request.status != 'APPROVED':
+        if leave_request.status == 'APPROVED':
             # 승인된 경우, 이미 사용 처리되었는 지 확인
             if LeaveUsage.objects.filter(
                 leave_request=leave_request,

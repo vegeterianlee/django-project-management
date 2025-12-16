@@ -23,13 +23,11 @@ class Notification(TimeStampedSoftDelete):
     # 이벤트 타입 선택지
     EVENT_TYPE_CHOICES = [
         ('LEAVE_REQUEST', '휴가 신청'),
+        ('LEAVE_APPROVAL_REQUIRED', '휴가 결재 요청'),
+        ('LEAVE_CANCELLED', '휴가 결재 취소'),
+
         ('LEAVE_APPROVED', '휴가 승인'),
         ('LEAVE_REJECTED', '휴가 반려'),
-
-        ('APPROVAL_REQUIRED', '결재 요청'),
-        ('APPROVAL_APPROVED', '결재 승인'),
-        ('APPROVAL_REJECTED', '결재 반려'),
-
         ('PROJECT_ASSIGNED', '프로젝트 할당'),
         ('TASK_ASSIGNED', '작업 할당'),
     ]
@@ -46,29 +44,23 @@ class Notification(TimeStampedSoftDelete):
         related_name='received_notifications',
         help_text="수신자"
     )
-    aggregate_type = models.CharField(
+    notification_type = models.CharField(
         max_length=100,
         help_text="집계 타입 (예: LeaveRequest, ApprovalLine)"
     )
-    aggregate_id = models.BigIntegerField(
+    notification_type_id = models.BigIntegerField(
         help_text="집계 ID"
     )
-    event_type = models.CharField(
-        max_length=50,
-        choices=EVENT_TYPE_CHOICES,
-        help_text="이벤트 타입"
+
+    message = models.TextField(
+        help_text="알림 메시지"
     )
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='UNREAD',
-        help_text="알림 상태"
+
+    is_read = models.BooleanField(
+        default=False,
+        help_text="읽음 여부"
     )
-    description = models.TextField(
-        null=True,
-        blank=True,
-        help_text="알림 설명"
-    )
+
     read_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -81,17 +73,19 @@ class Notification(TimeStampedSoftDelete):
         verbose_name_plural = 'Notifications'
         indexes = [
             models.Index(fields=['receiver'], name='idx_notification_receiver'),
-            models.Index(fields=['status'], name='idx_notification_status'),
-            models.Index(fields=['aggregate_type', 'aggregate_id'], name='idx_notification_aggregate'),
+            models.Index(fields=['is_read'], name='idx_notification_read'),
+            models.Index(fields=['notification_type'], name='idx_notification_type'),
+            models.Index(fields=['notification_type', 'notification_type_id'], name='idx_notification_type_id'),
             models.Index(fields=['created_at'], name='idx_notification_created'),
+            models.Index(fields=['receiver', 'is_read'], name='idx_notification_receiver_read'),
         ]
 
     def __str__(self):
-        return f"{self.sender.name} → {self.receiver.name}: {self.get_event_type_display()}"
+        return f"{self.sender.name} → {self.receiver.name}: {self.get_notification_type_display()}"
 
     def mark_as_read(self):
         """알림을 읽음으로 표시합니다."""
-        if self.status == 'UNREAD':
-            self.status = 'READ'
+        if not self.is_read:
+            self.is_read = True
             self.read_at = timezone.now()
-            self.save()
+            self.save(update_fields=['is_read', 'read_at'])
