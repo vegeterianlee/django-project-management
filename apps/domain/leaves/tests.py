@@ -12,11 +12,13 @@ from decimal import Decimal
 from datetime import date, timedelta
 from django.utils import timezone
 import json
-
+from rest_framework import serializers
 from apps.domain.leaves.models import LeaveGrant, LeaveRequest, LeaveUsage
 from apps.domain.users.models import User, Department, Position
 from apps.domain.company.models import Company
 from apps.domain.approvals.models import ApprovalRequest
+from apps.infrastructure.serializers.leaves import LeaveRequestModelSerializer
+
 
 # ============================================
 # 모델 단위 테스트 - TestCase 사용
@@ -137,20 +139,21 @@ class LeaveRequestModelTest(TestCase):
         )
 
         # 반차는 하루만 가능 (잘못된 경우: 다음날)
-        half_day_request = LeaveRequest(
-            user=self.user,
-            approval_request=approval_request,  # ✅ 필수 필드
-            leave_type='HALF_MORNING',
-            start_date=date.today(),
-            end_date=date.today() + timedelta(days=1),  # 다음날 (잘못됨)
-            total_days=Decimal('0.5'),
-            reason="개인 사정",
-            delegate_user=self.delegate_user,  # ✅ delegate_user 객체 사용
-            status='PENDING'
-        )
-        with self.assertRaises(Exception):
-            half_day_request.full_clean()
-            half_day_request.save()
+        data = {
+            'user': self.user.id,
+            'approval_request': approval_request.id,
+            'leave_type': 'HALF_MORNING',
+            'start_date': date.today(),
+            'end_date': date.today() + timedelta(days=1),  # 다음날 (잘못됨)
+            'total_days': Decimal('0.5'),
+            'reason': '개인 사정',
+            'delegate_user': self.delegate_user.id,
+            'status': 'PENDING'
+        }
+
+        serializer = LeaveRequestModelSerializer(data=data)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
 
 class LeaveUsageModelTest(TestCase):
     """LeaveUsage 모델 단위 테스트"""
@@ -210,7 +213,8 @@ class LeaveUsageModelTest(TestCase):
             total_days=Decimal('1.00'),
             reason="개인 사정",
             delegate_user=cls.delegate_user,  # ✅ delegate_user 객체 사용
-            status='APPROVED'
+            status='APPROVED',
+
         )
 
         # request_type_id 업데이트
@@ -287,7 +291,7 @@ class LeaveRequestAPITest(APITestCase):
         if response.status_code == status.HTTP_204_NO_CONTENT:
             return None
 
-        print("response", response)
+        #print("response", response)
         if hasattr(response, 'content') and response.content:
             try:
                 print("response_content", response.content.decode('utf-8'))
@@ -295,7 +299,7 @@ class LeaveRequestAPITest(APITestCase):
             except json.JSONDecodeError:
                 return {}
 
-        print("response_data", response.data)
+        #print("response_data", response.data)
         return response.data
 
     def test_list_leave_requests(self):
@@ -349,9 +353,11 @@ class LeaveRequestAPITest(APITestCase):
             "delegate_user": self.delegate_user.id,
         }
         response = self.client.post('/api/leave-requests/', data, format='json')
+        response_data = self._get_response_data(response)
+        print("연차 신청 에러 원인", response_data)
+
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        response_data = self._get_response_data(response)
         self.assertTrue(response_data['success'])
 
         # DB에 실제로 생성되었는지 확인
@@ -371,9 +377,10 @@ class LeaveRequestAPITest(APITestCase):
             "delegate_user": self.delegate_user.id,
         }
         response = self.client.post('/api/leave-requests/', data, format='json')
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         response_data = self._get_response_data(response)
+
+        print("반차 신청 에러 원인", response_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response_data['success'])
 
     # ========== UPDATE ==========
@@ -424,7 +431,8 @@ class LeaveRequestAPITest(APITestCase):
             requester=self.user,
             request_type='LEAVE',
             request_type_id=999,
-            status='APPROVED'
+            status='APPROVED',
+            approved_at=timezone.now()
         )
 
         leave_request = LeaveRequest.objects.create(
@@ -437,7 +445,6 @@ class LeaveRequestAPITest(APITestCase):
             reason="개인 사정",
             delegate_user=self.delegate_user,
             status='APPROVED',
-            approved_at=timezone.now()
         )
 
         # request_type_id 업데이트
@@ -642,7 +649,7 @@ class LeaveUsageAPITest(APITestCase):
             total_days=Decimal('1.00'),
             reason="개인 사정",
             delegate_user=cls.delegate_user,  # ✅ delegate_user 객체 사용
-            status='APPROVED'
+            status='APPROVED',
         )
 
         # request_type_id 업데이트
