@@ -66,6 +66,12 @@ class ValidationException(BaseCustomException):
     ):
         super().__init__(message, status.HTTP_400_BAD_REQUEST, key=key, errors=errors)
 
+class UnAuthorizedException(BaseCustomException):
+    def __init__(
+        self, message="UnAuthorized Error!", key="unauthorized_error", errors=None
+    ):
+        super().__init__(message, status.HTTP_400_BAD_REQUEST, key=key, errors=errors)
+
 
 class InvalidTokenException(BaseCustomException):
     def __init__(self, message="Token is Invalid!", key="invalid_token", errors=None):
