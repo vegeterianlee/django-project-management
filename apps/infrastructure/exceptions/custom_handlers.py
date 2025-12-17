@@ -22,37 +22,39 @@ def custom_exception_handler(exc, context):
        """
     # DRF의 기본 예외 핸들러 실행
     response = exception_handler(exc, context)
+    #print(response)
 
     # BaseCustomException인 경우
     if isinstance(exc, BaseCustomException):
         # 예외 타입에 따라 적절한 Response 클래스 선택
+        error_data = exc.errors if exc.errors is not None else {"detail": str(exc.detail) if hasattr(exc, 'detail') else str(exc)}
         if exc.status_code == status.HTTP_404_NOT_FOUND:
             return NotFoundResponse(
-                data=exc.errors,
+                data=error_data,
                 message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
                 key=exc.key
             )
         elif exc.status_code == status.HTTP_403_FORBIDDEN:
             return PermissionDeniedResponse(
-                data=exc.errors,
+                data=error_data,
                 message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
                 key=exc.key
             )
         elif exc.status_code == status.HTTP_409_CONFLICT:
             return ConflictResponse(
-                data=exc.errors,
+                data=error_data,
                 message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
                 key=exc.key
             )
         elif exc.status_code == status.HTTP_400_BAD_REQUEST:
             return BadRequestResponse(
-                data=exc.errors,
+                data=error_data,
                 message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
                 key=exc.key
             )
         else:
             return ServerErrorResponse(
-                data=exc.errors,
+                data=error_data,
                 message=str(exc.detail) if hasattr(exc, 'detail') else exc.key,
                 key=exc.key
             )

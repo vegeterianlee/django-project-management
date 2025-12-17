@@ -7,16 +7,16 @@ StandardViewSetMixin을 사용하여 표준화된 응답 형식을 자동으로 
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from django.db.models import Q
-from django.utils import timezone
-from datetime import date
 
+from apps.application.project_creation.usecase import ProjectCreationUseCase
 from apps.infrastructure.repositories.projects.repository import (
     ProjectRepository,
     ProjectCompanyLinkRepository,
     ProjectAssigneeRepository, ProjectMethodRepository,
 )
 from apps.infrastructure.responses.swagger_api_response import ApiResponse
+from apps.infrastructure.serializers.designs import ProjectDesignModelSerializer
+from apps.infrastructure.serializers.sales import ProjectSalesModelSerializer
 from apps.infrastructure.views.mixins import StandardViewSetMixin
 from apps.domain.projects.models import Project, ProjectCompanyLink, ProjectAssignee, ProjectMethod
 from apps.infrastructure.serializers.projects import (
@@ -69,7 +69,17 @@ class ProjectViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
     )
     def create(self, request, *args, **kwargs):
         """프로젝트 생성"""
-        return super().create(request, *args, **kwargs)
+        # Project 검증
+        project_serializer = ProjectModelSerializer(data=request.data)
+        project_serializer.is_valid(raise_exception=True)
+
+        project = project_serializer.save()
+        response_serializer = self.get_serializer(project)
+
+        return SuccessResponse(
+            data=response_serializer.data,
+            message='프로젝트가 생성되었습니다. 영업 및 설계 정보는 곧 생성됩니다.'
+        )
 
     @extend_schema(
         parameters=[

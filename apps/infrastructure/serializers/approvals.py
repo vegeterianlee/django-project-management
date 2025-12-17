@@ -6,6 +6,8 @@ Approvals 도메인의 모델을 직렬화/역직렬화하는 Serializer입니�
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps.domain.approvals.models import ApprovalRequest, ApprovalLine, ApprovalPolicy, ApprovalPolicyStep
+from apps.domain.enums.departments import ORGANIZATION_TYPE_CHOICES
+
 
 class ApprovalLineApproveInputSerializer(serializers.Serializer):
     """결재 승인 입력 Serializer"""
@@ -119,6 +121,28 @@ class ApprovalPolicyModelSerializer(serializers.ModelSerializer):
         if value not in valid_types:
             raise serializers.ValidationError(
                 f"요청 타입은 {valid_types} 중 하나여야 합니다."
+            )
+        return value
+
+    def validate_applies_to_role(self, value):
+        """적용 대상 역할 검증"""
+        valid_roles = [choice[0] for choice in ApprovalPolicy.APPLIES_TO_ROLE]
+        if value not in valid_roles:
+            valid_roles_display = [f"{choice[0]} ({choice[1]})" for choice in ApprovalPolicy.APPLIES_TO_ROLE]
+            raise serializers.ValidationError(
+                f"적용 대상 역할은 {valid_roles} 중 하나여야 합니다. "
+                f"유효한 선택지: {valid_roles_display}"
+            )
+        return value
+
+    def validate_applies_to_dept_type(self, value):
+        """적용 대상 부서 타입 검증"""
+        valid_dept_types = [choice[0] for choice in ORGANIZATION_TYPE_CHOICES]
+        if value not in valid_dept_types:
+            valid_dept_types_display = [f"{choice[0]} ({choice[1]})" for choice in ORGANIZATION_TYPE_CHOICES]
+            raise serializers.ValidationError(
+                f"적용 대상 부서 타입은 {valid_dept_types} 중 하나여야 합니다. "
+                f"유효한 선택지: {valid_dept_types_display}"
             )
         return value
 

@@ -3,7 +3,6 @@ Custom Authentication Backend
 JWT 토큰을 검증하여 User 객체를 반환
 """
 from typing import Optional
-
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import UntypedToken
@@ -41,8 +40,8 @@ class JWTAuthenticationBackend(BaseAuthentication):
         try:
             # JWT 토큰 검증
             validated_token = UntypedToken(token)
-            print("token", token)
-            print("validated_token", validated_token)
+            #print("token", token)
+            #print("validated_token", validated_token)
 
             # 토큰에서 user_id 추출
             user_id = validated_token.get('user_id')
@@ -63,4 +62,5 @@ class JWTAuthenticationBackend(BaseAuthentication):
             raise AuthenticationFailed("유효하지 않은 토큰 입니다.")
 
         except Exception as e:
+            print(e)
             raise AuthenticationFailed("인증 중 오류가 발생했습니다.")

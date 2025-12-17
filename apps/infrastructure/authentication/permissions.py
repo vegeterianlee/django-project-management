@@ -24,6 +24,15 @@ class IsAuthenticatedOrPublic(permissions.BasePermission):
         '/api/docs/',  # Swagger UI
     ]
 
+    READ_ONLY_PUBLIC_ENDPOINTS = [
+        '/api/departments',
+        '/api/positions',
+    ]
+
+    CREATE_PUBLIC_ENDPOINTS = [
+    '/api/users',  # User 생성만 허용 (GET은 인증 필요)
+    ]
+
     def has_permission(self, request: Request, view) -> bool:
         """
         요청 경로를 확인하여 인증 필요 여부 결정
@@ -36,11 +45,23 @@ class IsAuthenticatedOrPublic(permissions.BasePermission):
             bool: 권한 허용 여부
         """
         path = request.path
+        method = request.method.upper()
 
         # 공개 엔드포인트인지 확인
         for public_endpoint in self.PUBLIC_ENDPOINTS:
             if path.startswith(public_endpoint):
                 return True
+
+        # 읽기 전용 공개 엔드포인트인 지 확인
+        if method in permissions.SAFE_METHODS:
+            for read_only_endpoint in self.READ_ONLY_PUBLIC_ENDPOINTS:
+                if path.startswith(read_only_endpoint):
+                    return True
+
+        if method == 'POST':
+            for create_endpoint in self.CREATE_PUBLIC_ENDPOINTS:
+                if  path == create_endpoint + '/' or path == create_endpoint:
+                    return True
 
         # 그 외 모든 엔드포인트는 인증 필요
         return request.user and request.user.is_authenticated
