@@ -7,7 +7,7 @@ from django.db import transaction, models
 from django.utils import timezone
 from typing import Dict, Any, Optional
 import uuid
-
+from apps.infrastructure.outbox.tasks import process_project_creation
 from apps.infrastructure.outbox.models import OutboxEvent, OutboxEventStatus
 from apps.infrastructure.outbox.tasks import process_soft_delete_propagation
 
@@ -34,6 +34,27 @@ def _publish_event_immediately(event: OutboxEvent):
             f"Failed to publish outbox event {event.id} immediately: {e}",
             exc_info=True
         )
+
+def _publish_project_creation_event(event: OutboxEvent):
+    """
+       프로젝트 생성 이벤트를 즉시 Celery로 발행합니다.
+       트랜잭션 커밋 후 호출됩니다.
+
+       Args:
+           event: 발행할 Outbox 이벤트
+       """
+    try:
+        task_result = process_project_creation.delay(str(event.id))
+        event.mark_as_published(celery_task_id=task_result.id)
+
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(
+            f"Failed to publish project creation event {event.id} immediately: {e}",
+            exc_info=True
+        )
+
 
 
 class OutboxService:
@@ -88,3 +109,46 @@ class OutboxService:
             status=OutboxEventStatus.FAILED,
             retry_count__lt=models.F('max_retries')
         ).order_by('last_error_at')[:limit]
+
+    @staticmethod
+    def create_project_creation_event(
+        project_id: int,
+        sales_data: Optional[Dict[str, Any]] = None,
+        design_data: Optional[Dict[str, Any]] = None,
+    ) -> OutboxEvent:
+        """
+        프로젝트 생성 이벤트를 생성합니다.
+        트랜잭션 커밋 후 Celery로 전송되어 ProjectSales와 ProjectDesign을 생성합니다.
+
+        Args:
+            project_id: 생성된 Project의 ID
+            sales_data: ProjectSales 생성용 데이터 (선택사항)
+            design_data: ProjectDesign 생성용 데이터 (선택사항)
+
+        Returns:
+            OutboxEvent: 생성된 Outbox 이벤트
+        """
+        event_data = {
+            'model_app': 'projects',
+            'model_name': "Project",
+            "project_id": str(project_id),
+            "sales_data": sales_data or {},
+            "design_data": design_data or {}
+        }
+
+        event = OutboxEvent.objects.create(
+            id=uuid.uuid4(),
+            event_type="ProjectCreated",
+            aggregate_type="Project",
+            aggregate_id=str(project_id),
+            event_data=event_data,
+            status=OutboxEventStatus.PENDING
+        )
+
+        transaction.on_commit(
+            lambda: _publish_project_creation_event(event)
+        )
+
+        return event
+
+

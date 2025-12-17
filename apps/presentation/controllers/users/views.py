@@ -9,6 +9,8 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from django.db.models import Q
 
+from apps.domain.users.service import UserService
+from apps.infrastructure.exceptions.exceptions import UnAuthorizedException
 from apps.infrastructure.repositories.user.repository import UserRepository, PositionRepository, \
     UserPermissionRepository, PhaseAccessRuleRepository
 from apps.infrastructure.responses.swagger_api_response import ApiResponse
@@ -25,7 +27,7 @@ from apps.infrastructure.serializers.users import (
     DepartmentModelSerializer,
     PositionModelSerializer,
     UserPermissionModelSerializer,
-    PhaseAccessRuleModelSerializer,
+    PhaseAccessRuleModelSerializer, AssignDepartmentManagerSerializer,
 )
 from apps.infrastructure.responses.success import SuccessResponse
 from apps.infrastructure.responses.error import NotFoundResponse
@@ -44,6 +46,30 @@ class UserViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         """QuerySet을 반환합니다."""
         return User.objects.filter(deleted_at__isnull=True)
+
+    @extend_schema(
+        tags=['Auth'],
+        responses={200: dict}
+    )
+    @action(detail=False, methods=['get'], url_path='me')
+    def me(self, request):
+        """
+        현재 로그인한 사용자 정보 조회
+
+        GET /api/auth/me/
+        Authorization: Bearer {access_token}
+
+        토큰에서 사용자 정보를 추출하여 반환합니다.
+        """
+        if not request.user or not request.user.is_authenticated:
+            raise UnAuthorizedException("로그인이 필요합니다.")
+
+        user = request.user
+        serializer = self.get_serializer(user)
+        return SuccessResponse(
+            data=serializer.data,
+            message="사용자 정보가 조회되었습니다."
+        )
 
     @extend_schema(
         parameters=[
@@ -236,7 +262,101 @@ class DepartmentViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
         """부서 삭제"""
         return super().destroy(request, *args, **kwargs)
 
+    # 현재 유저를 부서장으로 임명
+    @extend_schema(
+        tags=['Department'],
+        request=AssignDepartmentManagerSerializer,
+        responses={200: dict}
+    )
+    @action(detail=True, methods=['post'], url_path='assign-manager')
+    def assign_manager(self, request, pk=None):
+        """
+        부서장 임명
 
+        POST /api/departments/{id}/assign-manager/
+        {
+            "user_id": 1
+        }
+        """
+        department = self.get_object()
+
+        serializer = AssignDepartmentManagerSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user_id = serializer.validated_data['user_id']
+        department_manager = UserService.assign_department_manager(
+            department_id=department.id,
+            user_id=user_id
+        )
+        return SuccessResponse(
+            data={
+                'department_id': department.id,
+                'department_name': department.name,
+                'manager_id': department_manager.user.id,
+                'manager_name': department_manager.user.name,
+                'manager_email': department_manager.user.email,
+            },
+            message=f'{department_manager.user.name}님이 {department.name} 부서장으로 임명되었습니다.'
+        )
+
+    @extend_schema(
+        tags=['Department'],
+        responses={200: dict}
+    )
+    @action(detail=True, methods=['delete'], url_path='remove-manager')
+    def remove_manager(self, request, pk=None):
+        """
+        부서장 해제
+
+        DELETE /api/departments/{id}/remove-manager/
+        """
+        department = self.get_object()
+        UserService.remove_department_manager(department_id=department.id)
+
+        return SuccessResponse(
+            data={
+                'department_id': department.id,
+                'department_name': department.name,
+            },
+            message=f'{department.name} 부서장이 해제되었습니다.'
+        )
+
+    @extend_schema(
+        tags=['Department'],
+        responses={200: dict}
+    )
+    @action(detail=True, methods=['get'], url_path='manager')
+    def get_manager(self, request, pk=None):
+        """
+        부서장 조회
+
+        GET /api/departments/{id}/manager/
+        """
+        department = self.get_object()
+        manager = UserService.get_department_manager(department_id=department.id)
+        if manager:
+            return SuccessResponse(
+                data={
+                    'department_id': department.id,
+                    'department_name': department.name,
+                    'manager': {
+                        'id': manager.id,
+                        'name': manager.name,
+                        'email': manager.email,
+                        'user_uid': manager.user_uid,
+                    }
+                },
+                message='부서장 조회 성공'
+            )
+        else:
+            return SuccessResponse(
+                data={
+                    'department_id': department.id,
+                    'department_name': department.name,
+                    'manager': None
+                },
+                message='부서장이 없습니다.'
+            )
 
 @extend_schema(tags=['Position'])
 class PositionViewSet(StandardViewSetMixin, viewsets.ModelViewSet):

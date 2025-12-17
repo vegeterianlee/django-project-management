@@ -35,14 +35,10 @@ class ProjectSales(TimeStampedSoftDelete):
     )
     sales_type = models.CharField(
         max_length=50,
-        null=True,
-        blank=True,
         choices=SALES_TYPE_CHOICES,
         help_text="영업 유형"
     )
     sales_received_date = models.DateField(
-        null=True,
-        blank=True,
         help_text="영업 접수일"
     )
     estimate_request_date = models.DateField(

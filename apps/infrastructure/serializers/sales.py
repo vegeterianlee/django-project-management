@@ -161,8 +161,16 @@ class ProjectSalesModelSerializer(serializers.ModelSerializer):
 
     def validate_sales_type(self, value):
         """영업 유형 검증"""
-        if value and value not in [choice[0] for choice in ProjectSales.SALES_TYPE_CHOICES]:
-            raise serializers.ValidationError('유효하지 않은 영업 유형입니다.')
+        # # 생성 시에는 검증하지 않음
+        # if self.instance is None:
+        #     return value
+        valid_types = [choice[0] for choice in ProjectSales.SALES_TYPE_CHOICES]
+        if value not in valid_types:
+            valid_types_display = [f"{choice[0]} ({choice[1]})" for choice in ProjectSales.SALES_TYPE_CHOICES]
+            raise serializers.ValidationError(
+                f"영업 유형은 {valid_types} 중 하나여야 합니다. "
+                f"유효한 선택지: {valid_types_display}"
+            )
         return value
 
     @extend_schema_field(

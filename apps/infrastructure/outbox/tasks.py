@@ -188,7 +188,7 @@ def publish_outbox_messages():
     Fallback: 처리되지 않은 Outbox 이벤트를 재발행합니다.
     Celery Beat에 의해 주기적으로 실행됩니다.
 
-    ⚠️ 주의: 백업용입니다. 정상적인 경우에는 사용되지 않습니다.
+    주의: 백업용입니다. 정상적인 경우에는 사용되지 않습니다.
     """
     # PENDING 상태이지만 발행되지 않은 이벤트들
     pending_events = OutboxEvent.objects.filter(
@@ -232,3 +232,92 @@ def publish_outbox_messages():
             f"{retried_count} retried"
         )
 
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def process_project_creation(self, outbox_event_id: str):
+    """
+    프로젝트 생성 후 ProjectSales와 ProjectDesign을 생성하는 Celery 작업
+
+    Args:
+        outbox_event_id: OutboxEvent의 UUID
+    """
+    try:
+        outbox_event = OutboxEvent.objects.get(id=outbox_event_id)
+
+        # 이미 처리된 경우 스킵
+        if outbox_event.status == OutboxEventStatus.PROCESSED:
+            logger.info(f"Outbox event {outbox_event_id} already processed")
+            return
+
+        # 이벤트 데이터 추출
+        event_data = outbox_event.event_data
+        project_id = event_data['project_id']
+        sales_data = event_data['sales_data']
+        design_data = event_data['design_data']
+
+        from apps.domain.projects.models import Project
+        try:
+            project = Project.objects.get(pk=project_id, deleted_at__isnull=True)
+        except Project.DoesNotExist:
+            error_msg = f"Project {project_id} not found"
+            logger.error(error_msg)
+            outbox_event.mark_as_failed(error_msg)
+            return
+
+        with transaction.atomic():
+            # 1. ProjectSales 생성 (이미 존재하지 않는 경우만)
+            from apps.domain.sales.models import ProjectSales
+            existing_sales = ProjectSales.objects.filter(
+                project=project,
+                deleted_at__isnull=True
+            ).first()
+
+            if not existing_sales:
+                sales_create_data = {
+                    'project': project,
+                    **sales_data
+                }
+
+                project_sales = ProjectSales.objects.create(**sales_create_data)
+                logger.info(f"Created ProjectSales {project_sales.id} for project {project.id}")
+            else:
+                logger.info(f"ProjectSales {existing_sales.id} already exists for project {project.id}")
+
+            # 2. ProjectDesign 생성 (이미 존재하지 않는 경우만)
+            from apps.domain.designs.models import ProjectDesign
+            existing_design = ProjectDesign.objects.filter(
+                project=project,
+                deleted_at__isnull=True
+            ).first()
+
+            if not existing_design:
+                design_create_data = {
+                    'project': project,
+                    **design_data
+                }
+                project_design = ProjectDesign.objects.create(**design_create_data)
+                logger.info(f"Created ProjectDesign for Project {project_id}")
+            else:
+                logger.info(f"ProjectDesign already exists for Project {project_id}")
+
+            # 이벤트를 처리됨으로 표시
+            outbox_event.mark_as_processed()
+
+        logger.info(f"Successfully created ProjectSales and ProjectDesign for Project {project_id}")
+
+    except OutboxEvent.DoesNotExist:
+        logger.error(f"Outbox event {outbox_event_id} not found")
+
+    except Exception as e:
+        error_msg = f"Error processing outbox event {outbox_event_id}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+
+        try:
+            outbox_event = OutboxEvent.objects.get(id=outbox_event_id)
+            outbox_event.mark_as_failed(error_msg)
+
+            # 재시도 가능하면 재시도 해보기
+            if outbox_event.should_retry():
+                raise self.retry(exc=e)
+
+        except OutboxEvent.DoesNotExist:
+            pass

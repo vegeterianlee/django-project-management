@@ -3,6 +3,7 @@ Users Serializers
 
 Users 도메인의 모델을 직렬화/역직렬화하는 Serializer입니다.
 """
+from django.utils import timezone
 from rest_framework import serializers
 from apps.domain.users.models import (
     User,
@@ -62,6 +63,8 @@ class UserModelSerializer(serializers.ModelSerializer):
             'account_locked',
             'login_attempts',
             'lock_time',
+            'joined_at',
+            'sign_url',
             'created_at',
             'updated_at',
             'deleted_at',
@@ -72,16 +75,19 @@ class UserModelSerializer(serializers.ModelSerializer):
             'updated_at',
             'deleted_at',
             'company_name',
+            'account_locked',
+            'login_attempts',
+            'lock_time',
         ]
         extra_kwargs = {
             'password': {'write_only': True},  # 비밀번호는 쓰기 전용
         }
-
     def validate_email(self, value):
         """이메일 형식 검증"""
         if '@' not in value:
             raise serializers.ValidationError("올바른 이메일 형식이 아닙니다.")
         return value
+
 
     def validate_user_uid(self, value):
         """user_uid 중복 검증"""
@@ -94,6 +100,29 @@ class UserModelSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("이미 사용 중인 user_uid입니다.")
         return value
 
+    def create(self, validated_data):
+        """회원가입 시 비밀번호 암호화"""
+        password = validated_data.pop('password')
+        user = super().create(validated_data)
+
+        if password:
+            user.set_password(password)
+            user.save(update_fields=['password'])
+        return user
+
+    def update(self, instance, validated_data):
+        """
+        User 수정 시 비밀번호가 변경되면 해시
+        """
+        password = validated_data.pop('password', None)
+
+        # 나머지 필드 업데이트
+        user = super().update(instance, validated_data)
+        if password:
+            user.set_password(password)
+            user.save(update_fields=['password'])
+
+        return user
 
 class UserPermissionModelSerializer(serializers.ModelSerializer):
     """UserPermission 모델의 Serializer"""
@@ -158,4 +187,19 @@ class PhaseAccessRuleModelSerializer(serializers.ModelSerializer):
         """required_departments가 리스트인지 검증"""
         if not isinstance(value, list):
             raise serializers.ValidationError("required_departments는 리스트여야 합니다.")
+        return value
+
+
+class AssignDepartmentManagerSerializer(serializers.Serializer):
+    """
+    부서장 임명 요청 Serializer
+    """
+    user_id = serializers.IntegerField(
+        help_text="부서장으로 임명할 사용자 ID"
+    )
+
+    def validate_user_id(self, value):
+        """사용자 존재 확인"""
+        if not User.objects.filter(id=value, deleted_at__isnull=True).exists():
+            raise serializers.ValidationError("존재하지 않는 사용자입니다.")
         return value

@@ -3,6 +3,8 @@ Users Domain Models
 
 사용자, 부서, 직급, 권한 관련 도메인 모델을 정의합니다.
 """
+from django.contrib.auth.base_user import AbstractBaseUser
+from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from django.utils import timezone
 
@@ -125,9 +127,6 @@ class Department(models.Model):
         return self.organization_type == 'BUSINESS_UNIT'
 
 
-
-
-
 class Position(models.Model):
     """
     직급 정보를 관리하는 모델입니다.
@@ -167,13 +166,17 @@ class Position(models.Model):
         return self.title
 
 
-class User(TimeStampedSoftDelete):
+class User(TimeStampedSoftDelete, AbstractBaseUser, PermissionsMixin):
     """
     사용자 정보를 관리하는 모델입니다.
 
+    AbstractBaseUser를 상속받아 Django 인증 시스템과 통합됩니다.
     소프트 삭제 기능을 제공하며, 회사, 부서, 직급과의 관계를 가집니다.
     계정 잠금 기능도 포함합니다.
     """
+    USERNAME_FIELD = 'user_uid'
+    REQUIRED_FIELDS = ['email', 'name']
+
     user_uid = models.CharField(
         max_length=100,
         unique=True,
@@ -203,7 +206,7 @@ class User(TimeStampedSoftDelete):
         blank=True,
         help_text="사용자 색상 코드 (HEX)"
     )
-    password = models.CharField(max_length=255, help_text="비밀번호 (해시)")
+    #password = models.CharField(max_length=255, help_text="비밀번호 (해시)")
     account_locked = models.BooleanField(
         default=False,
         help_text="계정 잠금 여부"
@@ -218,9 +221,14 @@ class User(TimeStampedSoftDelete):
         help_text="계정 잠금 시간"
     )
     joined_at = models.DateField(
+        help_text="입사일"
+    )
+
+    sign_url = models.CharField(
+        max_length=100,
         null=True,
         blank=True,
-        help_text="입사일"
+        help_text="개인 sign file url"
     )
 
     class Meta:
@@ -233,12 +241,16 @@ class User(TimeStampedSoftDelete):
             models.Index(fields=['department_id'], name='idx_user_department'),
             models.Index(fields=['position_id'], name='idx_user_position'),
             models.Index(fields=['joined_at'], name='idx_user_joined_at'),
+            models.Index(fields=['sign_url'], name='idx_user_sign_url'),
         ]
 
 
     def __str__(self):
         return f"{self.name} ({self.user_uid})"
 
+    def get_username(self):
+        """사용자명 반환 (USERNAME_FIELD 값)"""
+        return getattr(self, self.USERNAME_FIELD)
 
 class UserPermission(models.Model):
     """

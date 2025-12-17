@@ -10,6 +10,8 @@ from drf_spectacular.utils import extend_schema_field
 from django.db import transaction
 from rest_framework import serializers
 from apps.domain.projects.models import Project, ProjectCompanyLink, ProjectAssignee, ProjectMethod
+from apps.domain.sales.models import ProjectSales
+from apps.infrastructure.outbox.services import OutboxService
 
 
 class ProjectMethodModelSerializer(serializers.ModelSerializer):
@@ -95,6 +97,17 @@ class ProjectModelSerializer(serializers.ModelSerializer):
         help_text="공법 목록 (프로젝트 생성 시 함께 등록)"
     )
 
+    sales_type = serializers.ChoiceField(
+        choices=ProjectSales.SALES_TYPE_CHOICES,
+        write_only=True,
+        help_text="영업 유형 (프로젝트 생성 시 ProjectSales에 전달)"
+    )
+
+    sales_received_date = serializers.DateField(
+        write_only=True,
+        help_text="영업 접수일 (프로젝트 생성 시 ProjectSales에 전달)"
+    )
+
     class Meta:
         model = Project
         fields = [
@@ -105,6 +118,8 @@ class ProjectModelSerializer(serializers.ModelSerializer):
             'status',
             'methods',  # 공법 목록 (상세 정보)
             'methods_input',  # 공법 입력 (쓰기 전용)
+            'sales_type', # project_sales 입력용
+            'sales_received_date', # project_sales 입력용
             'start_date',
             'end_date',
             'company_links_by_role',  # 역할별 분류된 company_links
@@ -209,8 +224,23 @@ class ProjectModelSerializer(serializers.ModelSerializer):
             result[link.role].append(link_data)
             result['count'][link.role] += 1
             result['count']['total'] += 1
-
         return result
+
+    def validate_sales_type(self, value):
+        """
+        영업 유형 검증
+
+        Project 생성 시 sales_type을 검증합니다.
+        """
+        valid_types = [choice[0] for choice in ProjectSales.SALES_TYPE_CHOICES]
+        if value not in valid_types:
+            valid_types_display = [f"{choice[0]} ({choice[1]})" for choice in ProjectSales.SALES_TYPE_CHOICES]
+            raise serializers.ValidationError(
+                f"영업 유형은 {valid_types} 중 하나여야 합니다. "
+                f"유효한 선택지: {valid_types_display}"
+            )
+        return value
+
 
     def create(self, validated_data):
         """
@@ -222,6 +252,13 @@ class ProjectModelSerializer(serializers.ModelSerializer):
         Returns:
             Project: 생성된 Project 인스턴스
         """
+        # ProjectSales 관련 필드 분리
+        sales_data = {}
+        sales_type = validated_data.pop('sales_type', None)
+        sales_received_date = validated_data.pop('sales_received_date', None)
+        sales_data['sales_type'] = sales_type
+        sales_data['sales_received_date'] = sales_received_date.isoformat()
+
         # methods_input을 validated_data에서 분리
         methods_data = validated_data.pop('methods_input', [])
 
@@ -238,6 +275,12 @@ class ProjectModelSerializer(serializers.ModelSerializer):
                 ]
                 ProjectMethod.objects.bulk_create(project_methods)
 
+            # outbox_event 생성
+            OutboxService.create_project_creation_event(
+                project_id=project.id,
+                sales_data=sales_data if sales_data else None,
+                design_data=None,
+            )
         return project
 
     def update(self, instance, validated_data):

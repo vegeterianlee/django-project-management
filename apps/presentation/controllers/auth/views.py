@@ -55,12 +55,12 @@ class AuthViewSet(viewsets.ViewSet):
         except User.DoesNotExist:
             raise UnAuthorizedException("사용자를 찾을 수 없습니다.")
 
-        if not check_password(password, user.password):
+        if not user.check_password(password):
             # 로그인 시도 횟수 증가
             user.login_attempts += 1
             if user.login_attempts >= 5:
                 user.account_locked = True
-            user.save(update_fields=['login_attempt', 'account_locked'])
+            user.save(update_fields=['login_attempts', 'account_locked'])
             raise PasswordMissmatchException("비밀번호가 틀렸습니다.")
 
         # 계정 잠금 확인
