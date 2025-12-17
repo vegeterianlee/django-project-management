@@ -5,6 +5,7 @@ Django settings for pms_v3 project.
 import os
 from pathlib import Path
 import environ
+from datetime import timedelta
 
 # -----------------------------
 # Base directory setup
@@ -143,6 +144,12 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "EXCEPTION_HANDLER": "apps.infrastructure.exceptions.custom_handlers.custom_exception_handler",
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.infrastructure.authentication.backends.JWTAuthenticationBackend",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "apps.infrastructure.authentication.permissions.IsAuthenticatedOrPublic",
+    ],
 }
 
 SPECTACULAR_SETTINGS = {
@@ -150,6 +157,39 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Project Management Service API",
     "VERSION": "0.2.0",
     "DISABLE_ERRORS_AND_WARNINGS": False,
+
+    "COMPONENTS": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT 토큰을 입력하세요. 형식: Bearer {token}"
+            }
+        }
+    },
+    "SECURITY": [
+        {
+            "bearerAuth": []  # 위에서 정의한 인증 스키마 사용
+        }
+    ],
+    "SWAGGER_UI_SETTINGS": {
+        "deepLinking": True,
+        "persistAuthorization": True,  # 페이지 새로고침 시에도 토큰 유지
+        "displayRequestDuration": True,
+        "filter": True,
+        "tryItOutEnabled": True,
+    },
+    "APPEND_COMPONENTS": {
+            "securitySchemes": {
+                "bearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "JWT"
+                }
+            }
+        },
+
     "ENUM_NAME_OVERRIDES": {
             "ProjectCompanyLink.ROLE_CHOICES": "ProjectRoleEnum",
             "Company.COMPANY_TYPES": "CompanyTypeEnum",
@@ -162,6 +202,21 @@ SPECTACULAR_SETTINGS = {
             "ProjectSales.SALES_TYPE_CHOICES": "ProjectSalesTypeEnum",
         },
 }
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # Access Token 1시간
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # Refresh Token 7일
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}
+
+
+
 # -----------------------------
 # Redis Cache
 # -----------------------------

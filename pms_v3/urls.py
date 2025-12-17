@@ -24,6 +24,9 @@ urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 
+    # Auth API
+    path("api/", include("apps.presentation.api.auth.urls")),
+
     # API 엔드포인트
     # Company 도메인 API
     path("api/", include("apps.presentation.api.company.urls")),
