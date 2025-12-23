@@ -131,6 +131,7 @@ class ProjectModelSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id',
+            'project_code',
             'created_at',
             'updated_at',
             'deleted_at',
@@ -241,6 +242,31 @@ class ProjectModelSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def _generate_project_code(self) -> str:
+        """
+        프로젝트 코드를 자동으로 생성합니다.
+        :return:
+        """
+        current_year = timezone.now().year
+        max_project = Project.objects.filter(
+            project_code__startswith=f"{current_year}_",
+            deleted_at__isnull=True
+        ).select_for_update().order_by('-project_code').first()
+
+        if max_project and max_project.project_code:
+            try:
+                _, max_number_str = max_project.project_code.rsplit('_')
+                max_number = int(max_number_str)
+                next_number = max_number + 1
+            except ValueError:
+                next_number = 1
+
+        else:
+            next_number = 1
+
+        project_code = f"{current_year}_{next_number:03d}"
+        return project_code
+
 
     def create(self, validated_data):
         """
@@ -264,6 +290,9 @@ class ProjectModelSerializer(serializers.ModelSerializer):
 
         # ProjectMethod 생성
         with transaction.atomic():
+            project_code = self._generate_project_code()
+            validated_data['project_code'] = project_code
+
             # Project 생성
             project = Project.objects.create(**validated_data)
 
