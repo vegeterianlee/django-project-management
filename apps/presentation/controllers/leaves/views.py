@@ -3,11 +3,15 @@ Leaves ViewSet
 
 Leaves 도메인의 API 엔드포인트를 제공합니다.
 """
+from datetime import date
+
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from django.db.models import Q
 
+from apps.domain.leaves.service import LeaveService
+from apps.domain.users.models import User
 from apps.infrastructure.views.mixins import StandardViewSetMixin
 from apps.infrastructure.responses.swagger_api_response import ApiResponse
 from apps.infrastructure.responses.success import SuccessResponse, CreatedResponse
@@ -82,7 +86,7 @@ class LeaveRequestViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
         """휴가 신청 생성"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        logging.info(f"request 구조 확인: {request}")
+        #logging.info(f"request 구조 확인: {request}")
         leave_request, approval_request = LeaveApprovalUseCase.create_leave_request_with_approval(
             user_id=request.user.id,
             leave_type=serializer.validated_data['leave_type'],
@@ -187,6 +191,58 @@ class LeaveGrantViewSet(StandardViewSetMixin, viewsets.ReadOnlyModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         """휴가 지급 상세 조회"""
         return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        tags=['LeaveGrant'],
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'user_id': {'type': 'integer'},
+                    'target_date': {'type': 'string', 'format': 'date'},
+                },
+                'required': ['user_id'],
+            }
+        },
+        responses={200: dict}
+    )
+    @action(detail=False, methods=['post'], url_path='create-annual-grant')
+    def create_annual_grant(self, request):
+        """
+        특정 사용자에 대한 연차 생성 (동기로 직접 생성)
+        :param request:
+        :return:
+        """
+        user_id = request.data.get('user_id')
+        target_date_str = request.data.get('target_date')
+
+        if not user_id:
+            raise ValidationException('user_id는 필수입니다.')
+
+        target_date = date.today()
+        if target_date_str:
+            try:
+                target_date = date.fromisoformat(target_date_str)
+            except ValueError:
+                raise ValidationException('target_date는 yyyy-mm-dd 형식으로 입력해주세요.')
+
+        # 사용자 조회
+        user = User.objects.get(id=user_id, deleted_at__isnull=True)
+        if not user:
+            raise ValidationException(f"사용자(ID: {user_id})를 찾을 수 없습니다.")
+
+        grants = LeaveService.create_annual_leave_grant(user, target_date)
+        if grants:
+            serializer = self.get_serializer(grants, many=True)
+            return SuccessResponse(
+                data=serializer.data,
+                message=f"연차가 생성되었습니다"
+            )
+        else:
+            return SuccessResponse(
+                data=[],
+                message=f"해당 날짜 ({target_date})에 연차 생성 조건을 만족하지 않습니다."
+            )
 
 
 @extend_schema(tags=['Leave'])

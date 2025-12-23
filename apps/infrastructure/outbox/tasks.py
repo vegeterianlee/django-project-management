@@ -9,9 +9,13 @@ from celery import shared_task
 from django.db import transaction, models
 from django.utils import timezone
 from django.apps import apps
+from datetime import date
 import logging
-
 from apps.infrastructure.outbox.models import OutboxEvent, OutboxEventStatus
+from apps.domain.leaves.service import LeaveService
+from apps.domain.users.models import User
+from apps.infrastructure.outbox.services import OutboxService
+
 logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
@@ -321,3 +325,115 @@ def process_project_creation(self, outbox_event_id: str):
 
         except OutboxEvent.DoesNotExist:
             pass
+
+@shared_task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60
+)
+def process_annual_leave_grant(self, outbox_event_id: str):
+    """
+    연차 생성 Outbox 이벤트를 처리하는 Celery 작업입니다.
+    
+    :param self: 
+    :param outbox_event_id: 
+    :return: 
+    """
+    try:
+        # outbox 이벤트 조회
+        outbox_event = OutboxEvent.objects.get(id=outbox_event_id)
+
+        # 이미 처리된 경우 스킵
+        if outbox_event.status == OutboxEventStatus.PROCESSED:
+            logger.info(f"Outbox event {outbox_event_id} already processed")
+            return
+
+        event_data = outbox_event.event_data
+        user_id = int(event_data["user_id"])
+        target_date_str = event_data['target_date']
+        target_date = date.fromisoformat(target_date_str)
+
+        try:
+            user = User.objects.get(pk=user_id, deleted_at__isnull=True)
+
+        except User.DoesNotExist:
+            error_msg = f"User {user_id} not found"
+            logger.error(error_msg)
+            outbox_event.mark_as_failed(error_msg)
+            return
+
+        with transaction.atomic():
+            grants = LeaveService.create_annual_leave_grant(user, target_date)
+            if grants:
+                logger.info(
+                    f"Created {len(grants)} leave grant for User {user_id} "
+                    f"on {target_date}"
+                )
+
+            else:
+                logger.info(
+                    f"No leave grants created for User {user_id} on {target_date}"
+                )
+            outbox_event.mark_as_processed()
+        logger.info(f"Successfully processed outbox event {outbox_event_id}")
+
+    except OutboxEvent.DoesNotExist:
+        logger.error(f"Outbox event {outbox_event_id} not found")
+
+    except Exception as e:
+        error_msg = f"Error processing outbox event {outbox_event_id}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+
+        try:
+            outbox_event = OutboxEvent.objects.get(id=outbox_event_id)
+            outbox_event.mark_as_failed(error_msg)
+
+            if outbox_event.should_retry():
+                raise self.retry(exc=e)
+
+        except OutboxEvent.DoesNotExist:
+            pass
+
+
+# beat에서 실행할 task
+@shared_task()
+def process_hourly_annual_leave_grants():
+    """
+    정해진 시간의 정각마다 모든 활성 사용자에 대해 알아서 연차 부여
+    :return:
+    """
+    today = date.today()
+    logger.info(f"Processing hourly annual leave grants for date: {today}")
+    active_users = User.objects.filter(
+        deleted_at__isnull=True,
+        account_locked=False,
+        joined_at__isnull=False
+    )
+
+    created_count = 0
+    skipped_count = 0
+    error_count = 0
+
+    for user in active_users:
+        try:
+            OutboxService.create_annual_leave_grant_event(
+                user_id=user.id,
+                target_date=today.isoformat()
+            )
+            created_count += 1
+            logger.debug(f"Created outbox event for User {user.id} ({user.name})")
+
+        except Exception as e:
+            error_count += 1
+            logger.warning(
+                f"Failed to create outbox event for User {user.id} ({user.name}): {e}",
+                exc_info=True
+            )
+            continue
+
+    return {
+        'date': today.isoformat(),
+        'created_count': created_count,
+        'error_count': error_count,
+        'total_users': active_users.count(),
+    }

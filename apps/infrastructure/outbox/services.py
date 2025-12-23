@@ -10,7 +10,7 @@ import uuid
 from apps.infrastructure.outbox.tasks import process_project_creation
 from apps.infrastructure.outbox.models import OutboxEvent, OutboxEventStatus
 from apps.infrastructure.outbox.tasks import process_soft_delete_propagation
-
+from apps.infrastructure.outbox.tasks import process_annual_leave_grant
 
 def _publish_event_immediately(event: OutboxEvent):
     """
@@ -54,6 +54,27 @@ def _publish_project_creation_event(event: OutboxEvent):
             f"Failed to publish project creation event {event.id} immediately: {e}",
             exc_info=True
         )
+
+def _publish_annual_leave_grant_event(event: OutboxEvent):
+    """
+    연차 생성 이벤트를 즉시 Celery로 발행합니다.
+    트랜잭션 커밋 후 호출됩니다.
+
+    :param event:
+    :return:
+    """
+    try:
+        task_result = process_annual_leave_grant.delay(str(event.id))
+        event.mark_as_published(celery_task_id=task_result.id)
+
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(
+            f"Failed to publish annual leave grant event {event.id} immediately: {e}",
+            exc_info=True
+        )
+
 
 
 
@@ -151,4 +172,39 @@ class OutboxService:
 
         return event
 
+
+    @staticmethod
+    def create_annual_leave_grant_event(
+        user_id: int,
+        target_date: str
+    ) -> OutboxEvent:
+        """
+        연차 생성 이벤트를 생성합니다.
+        트랜잭션 커밋 후 Celery로 전송되어 연차를 생성합니다.
+
+        :param user_id:
+        :param target_date:
+        :return:
+        """
+        event_data = {
+            'model_app': 'users',
+            'model_name': 'User',
+            'user_id': str(user_id),
+            'target_date': target_date
+        }
+
+        event = OutboxEvent.objects.create(
+            id=uuid.uuid4(),
+            event_type='AnnualLeaveGrant',
+            aggregate_type='User',
+            aggregate_id=str(user_id),
+            event_data=event_data,
+            status=OutboxEventStatus.PENDING
+        )
+
+        transaction.on_commit(
+            lambda: _publish_annual_leave_grant_event(event)
+        )
+
+        return event
 
