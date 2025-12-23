@@ -14,7 +14,6 @@ import logging
 from apps.infrastructure.outbox.models import OutboxEvent, OutboxEventStatus
 from apps.domain.leaves.service import LeaveService
 from apps.domain.users.models import User
-from apps.infrastructure.outbox.services import OutboxService
 
 logger = logging.getLogger(__name__)
 
@@ -402,6 +401,8 @@ def process_hourly_annual_leave_grants():
     정해진 시간의 정각마다 모든 활성 사용자에 대해 알아서 연차 부여
     :return:
     """
+    from apps.infrastructure.outbox.services import OutboxService
+
     today = date.today()
     logger.info(f"Processing hourly annual leave grants for date: {today}")
     active_users = User.objects.filter(
@@ -411,7 +412,6 @@ def process_hourly_annual_leave_grants():
     )
 
     created_count = 0
-    skipped_count = 0
     error_count = 0
 
     for user in active_users:

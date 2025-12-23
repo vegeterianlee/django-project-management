@@ -4,6 +4,8 @@ Users ViewSet
 Users 도메인의 API 엔드포인트를 제공합니다.
 StandardViewSetMixin을 사용하여 표준화된 응답 형식을 자동으로 사용합니다.
 """
+from typing import List
+
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -27,7 +29,7 @@ from apps.infrastructure.serializers.users import (
     DepartmentModelSerializer,
     PositionModelSerializer,
     UserPermissionModelSerializer,
-    PhaseAccessRuleModelSerializer, AssignDepartmentManagerSerializer,
+    PhaseAccessRuleModelSerializer, AssignDepartmentManagerSerializer, BulkUserCreateSerializer,
 )
 from apps.infrastructure.responses.success import SuccessResponse
 from apps.infrastructure.responses.error import NotFoundResponse
@@ -99,6 +101,56 @@ class UserViewSet(StandardViewSetMixin, viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """사용자 생성"""
         return super().create(request, *args, **kwargs)
+
+    @extend_schema(
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'users': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'user_uid': {'type': 'string'},
+                                'name': {'type': 'string'},
+                                'email': {'type': 'string'},
+                                'position_id': {'type': 'integer'},
+                                'department_id': {'type': 'integer'},
+                                'company': {'type': 'integer'},
+                                'profile_url': {'type': 'string'},
+                                'color': {'type': 'string'},
+                                'password': {'type': 'string'},
+                                'joined_at': {'type': 'string', 'format': 'date'},
+                                'sign_url': {'type': 'string'},
+                            },
+                            'required': ['user_uid', 'name', 'email', 'password']
+                        }
+                    }
+                },
+                'required': ['users']
+            }
+        },
+        responses=ApiResponse[dict]
+    )
+    @action(detail=False, methods=['post'], url_path='bulk-create')
+    def bulk_create(self, request):
+        """여러 유저를 한번에 생성"""
+        serializer = BulkUserCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        validated_users = serializer.validated_data['users']
+        create_users = UserService.bulk_create_users(validated_users)
+
+        result_serializer = UserModelSerializer(create_users, many=True)
+        return SuccessResponse(
+            data={
+                'created_cnt': len(create_users),
+                "users": result_serializer.data
+            },
+            message=f"{len(create_users)}명의 유저가 생성되었습니다."
+        )
+
 
     @extend_schema(
         parameters=[

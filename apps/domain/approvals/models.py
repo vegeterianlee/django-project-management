@@ -229,6 +229,7 @@ class ApprovalPolicy(TimeStampedSoftDelete):
         db_table = 'approval_policies'
         verbose_name = 'Approval Policy'
         verbose_name_plural = 'Approval Policies'
+        unique_together = [['request_type', 'applies_to_dept_type', "applies_to_role"]]
         indexes = [
             models.Index(fields=['request_type'], name='idx_approval_policy_type'),
             models.Index(fields=['applies_to_dept_type'], name='idx_approval_policy_dept'),

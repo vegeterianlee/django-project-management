@@ -9,7 +9,6 @@ from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.apps import apps
-from apps.infrastructure.outbox.services import OutboxService
 
 class TimeStampedModel(models.Model):
     """
@@ -53,6 +52,7 @@ class TimeStampedSoftDelete(TimeStampedModel):
             self._create_outbox_event()
 
     def _create_outbox_event(self):
+        from apps.infrastructure.outbox.services import OutboxService
         """
         소프트 삭제 Outbox 이벤트를 생성합니다.
         """

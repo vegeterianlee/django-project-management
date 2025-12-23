@@ -7,6 +7,8 @@ from django.db import transaction
 from django.utils import timezone
 from apps.domain.users.models import User, Department, DepartmentManager
 from apps.infrastructure.exceptions.exceptions import ValidationException
+from apps.infrastructure.serializers.users import UserModelSerializer
+
 
 class UserService:
     """
@@ -121,4 +123,48 @@ class UserService:
 
         manager = department.get_manager()
         return manager
+
+
+    @staticmethod
+    @transaction.atomic
+    def bulk_create_users(validated_users: list) -> list:
+        """
+        user 다수 생성합니다.
+        :param validated_users:
+        :return:
+        """
+
+        users_to_create = []
+        passwords = {}
+        user_uids = []
+
+        # set_password가 User 객체를 통해서 가능함
+        for user_data in validated_users:
+            password = user_data.pop('password')
+
+            # User 객체 생성
+            user = User(**user_data)
+            users_to_create.append(user)
+
+            # 비밀번호 저장
+            passwords[user.user_uid] = password
+            user_uids.append(user.user_uid)
+
+        # buik create 수행
+        created_users = User.objects.bulk_create(
+            users_to_create,
+            ignore_conflicts=False  # 중복 시 에러 발생
+        )
+
+        # pk가 채워졌는 지 확인
+        users_with_pk = User.objects.filter(user_uid__in=user_uids)
+        user_dict = {user.user_uid: user for user in users_with_pk}
+
+        # 각 유저의 비밀번호 설정
+        for user in users_with_pk:
+            user.set_password(passwords[user.user_uid])
+            user.save()
+
+        # 생성된 유저 정보 반환
+        return list(user_dict.values())
 

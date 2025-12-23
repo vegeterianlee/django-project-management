@@ -124,6 +124,66 @@ class UserModelSerializer(serializers.ModelSerializer):
 
         return user
 
+
+class BulkUserCreateSerializer(serializers.Serializer):
+    """
+    여러 유저를 한번에 생성하기 위한 Serializer
+    """
+    users = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="생성할 유저 정보 리스트"
+    )
+
+    def validate_users(self, value):
+        """유저 리스트 검증"""
+        if not value:
+            raise serializers.ValidationError("최소 1명의 유저 정보가 필요합니다.")
+
+        if len(value) > 100:
+            raise serializers.ValidationError("최대 100명까지 생성할 수 있습니다.")
+
+        # 각 유저 정보 검증
+        validated_users = []
+        user_uids = []
+        emails = []
+
+        for idx, user_data in enumerate(value):
+            required_fields = ["user_uid", "name", "email", "password"]
+            for field in required_fields:
+                if field not in user_data:
+                    raise serializers.ValidationError(f"유저 {idx+1}번째 정보에 {field} 필수 값이 없습니다.")
+
+            # 중복 확인
+            if user_data["user_uid"] in user_uids:
+                raise serializers.ValidationError(
+                    f"{idx+1}번째 유저의 user_uid가 중복되었습니다."
+                )
+            user_uids.append(user_data["user_uid"])
+
+            if user_data['email'] in emails:
+                raise serializers.ValidationError(
+                    f"{idx + 1}번째 유저의 email '{user_data['email']}'가 중복됩니다."
+                )
+            emails.append(user_data['email'])
+
+            # 기존 유저와 중복 확인
+            if User.objects.filter(user_uid=user_data['user_uid']).exists():
+                raise serializers.ValidationError(
+                    f"user_uid '{user_data['user_uid']}'는 이미 사용 중입니다."
+                )
+
+            if User.objects.filter(email=user_data['email']).exists():
+                raise serializers.ValidationError(
+                    f"email '{user_data['email']}'는 이미 사용 중입니다."
+                )
+
+            # 시리얼라이저로 검증
+            serializer = UserModelSerializer(data=user_data)
+            serializer.is_valid(raise_exception=True)
+            validated_users.append(serializer.validated_data)
+
+        return validated_users
+
 class UserPermissionModelSerializer(serializers.ModelSerializer):
     """UserPermission 모델의 Serializer"""
     user_name = serializers.CharField(source='user.name', read_only=True)

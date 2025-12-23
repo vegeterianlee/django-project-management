@@ -12,8 +12,8 @@
 # PyCharm과 같은 프로젝트 설정 파일 제외
 .idea/**
 
-# 원래 자바파일
-src/**
+# secret
+**/secret.yaml
 
 # 로그 파일
 apps/infrastructure/common/logging/log/**

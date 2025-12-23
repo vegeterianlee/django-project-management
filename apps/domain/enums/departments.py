@@ -6,4 +6,5 @@ ORGANIZATION_TYPE_CHOICES = [
     ('RND', '연구개발 전담부서'),
     ('HQ', '본사팀'),
     ('FIELD', '현장팀'),
+    ('CEO', '대표님'),
 ]
