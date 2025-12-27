@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: pms-web
+  labels:
+    app: pms-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pms-web
+  template:
+    metadata:
+      labels:
+        app: pms-web
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: web
+          image: dsct/daesan-pms:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          command: ["gunicorn", "pms_v3.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]
+          envFrom:
+            - secretRef:
+                name: pms-web-secrets
+          env:
+            - name: DJANGO_ENV
+              value: "prod"
+          startupProbe:
+            tcpSocket:
+              port: 8000
+            periodSeconds: 10
+            failureThreshold: 5
+
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+

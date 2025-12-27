@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+  - ../../base
+
+replicas:
+  - name: pms-v3-web
+    count: 3
+  - name: pms-v3-celery-worker
+    count: 3
+
+images:
+  - name: registry.example.com/pms-v3
+    newTag: latest
+
+patchesStrategicMerge:
+  - deployment-patch.yaml
