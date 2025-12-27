@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pms-web-celery-worker
+  name: web-celery-worker
   namespace: pms-web
   labels:
     app: pms-web-celery-worker

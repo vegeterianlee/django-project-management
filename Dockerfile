@@ -24,7 +24,7 @@ COPY pyproject.toml uv.lock ./
 
 # uv를 사용하여 의존성 설치
 # psycopg2-binary가 이미 포함되어 있어 PostgreSQL 연결 가능
-RUN uv pip install --system --no-cache -r pyproject.toml
+RUN uv pip install --system --no-cache .
 
 # 소스 코드 복사
 COPY . /app
