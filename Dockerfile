@@ -19,14 +19,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Python 경로 설정
 ENV PATH="/root/.local/bin:$PATH"
 
-# 의존성 파일 복사
-COPY pyproject.toml uv.lock ./
-
-# uv를 사용하여 의존성 설치
-# psycopg2-binary가 이미 포함되어 있어 PostgreSQL 연결 가능
-RUN uv pip install --system --no-cache .
-
 # 소스 코드 복사
 COPY . /app
+
+# uv를 사용하여 의존성 설치
+RUN uv pip install --system --no-cache .
 
 CMD gunicorn ${GUNICORN_WSGI_APP} --bind ${GUNICORN_BIND} --workers ${GUNICORN_WORKERS}
