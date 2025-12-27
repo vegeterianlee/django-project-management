@@ -2,7 +2,7 @@ name: CI-CD Build & Deploy
 
 on:
   push:
-    branches: ["main"]
+    branches: ["dev"]
 
 jobs:
   deploy:
@@ -65,7 +65,7 @@ jobs:
         env:
           KUBE_CONFIG: ${{ env.KUBECONFIG_DATA }}
         with:
-          args: wait pod -l app=pms-web -n pms-web --for=condition=ready --timeout=30s
+          args: wait pod -l app=pms-web -n pms-web --for=condition=ready --timeout=60s
 
       - name: Rollback on failure
         if: failure()
